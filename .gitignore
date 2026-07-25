@@ -1,8 +1,8 @@
-cat > .gitignore << 'EOF'
 results/
+logs/
 .venv/
 __pycache__/
 *.pyc
 *.pyo
+*.egg-info/
 .DS_Store
-EOF
