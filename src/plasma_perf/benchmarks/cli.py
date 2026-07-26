@@ -13,14 +13,12 @@ from typing import List, Optional
 from ..core.csv_io import build_output_path
 from ..core.paths import BENCH_RESULTS_DIR, LOGS_DIR
 from ..core.sweep import run_sweep
+from .ssrfb.runner import N_IT_DEFAULT as SSRFB_N_IT_DEFAULT
 from .ssrfb.runner import SSRFBBenchmark
 from .tileqr.runner import TileQRBenchmark
 
-# target ごとの既定値（スレッド既定のみ異なる: tileqr=全コア, ssrfb=1）
-_TARGETS = {
-    "tileqr": {"factory": TileQRBenchmark, "default_threads": os.cpu_count()},
-    "ssrfb": {"factory": SSRFBBenchmark, "default_threads": 1},
-}
+# target ごとのスレッド既定（tileqr=全コア, ssrfb=1）
+_DEFAULT_THREADS = {"tileqr": os.cpu_count(), "ssrfb": 1}
 
 
 def build_parser() -> argparse.ArgumentParser:
@@ -29,7 +27,7 @@ def build_parser() -> argparse.ArgumentParser:
         description="PLASMA タイルQR / SSRFBカーネルの nb・ib スイープ計測",
     )
     parser.add_argument(
-        "target", choices=sorted(_TARGETS.keys()),
+        "target", choices=sorted(_DEFAULT_THREADS.keys()),
         help="計測対象（tileqr: フルQR / ssrfb: カーネル単体）",
     )
     parser.add_argument("--exe", type=str, default=None,
@@ -39,7 +37,11 @@ def build_parser() -> argparse.ArgumentParser:
                         help="OMP_NUM_THREADS（既定: tileqr=全コア, ssrfb=1）。"
                              "明示指定時は出力ファイル名に th<N> を付与")
     parser.add_argument("--size", type=int, default=4096,
-                        help="行列サイズ（ssrfb ではCSV記録用メタ。既定 4096）")
+                        help="行列サイズ。tileqr=正方行列の次元、"
+                             "ssrfb=NoFlush の MAT_SIZE（キャッシュ占有量）。既定 4096")
+    parser.add_argument("--n-it", type=int, default=SSRFB_N_IT_DEFAULT,
+                        help=f"ssrfb 専用: NoFlush の反復回数 N_IT（既定 {SSRFB_N_IT_DEFAULT}）。"
+                             "tileqr では無視される")
     parser.add_argument("--nb-min", type=int, default=32)
     parser.add_argument("--nb-max", type=int, default=512)
     parser.add_argument("--ib-min", type=int, default=8)
@@ -61,12 +63,14 @@ def build_parser() -> argparse.ArgumentParser:
 def main(argv: Optional[List[str]] = None) -> int:
     args = build_parser().parse_args(argv)
 
-    spec = _TARGETS[args.target]
     # threads: 明示指定されたかでファイル名タグの有無を分ける
     threads_explicit = args.threads is not None
-    threads = args.threads if threads_explicit else spec["default_threads"]
+    threads = args.threads if threads_explicit else _DEFAULT_THREADS[args.target]
 
-    bench = spec["factory"](exe=args.exe)
+    if args.target == "ssrfb":
+        bench = SSRFBBenchmark(exe=args.exe, n_it=args.n_it)
+    else:
+        bench = TileQRBenchmark(exe=args.exe)
 
     # 実行ファイルの存在チェック
     exe = os.path.expanduser(bench.exe)

@@ -57,8 +57,10 @@ class TileQRBenchmark(Benchmark):
         proc = run_process(command, env=env, timeout=timeout, wrapper=wrapper)
         gflops = parse_gflops(proc.stdout) if proc.returncode == 0 else None
         ok = gflops is not None and gflops > 0
+        # 欠測は 0.0 で記録する（旧 tileQR_bench との CSV 互換）。
+        # 内部的には ok=False として欠測カウント・生ログ保存の対象になる。
         return PointResult(
-            values={"GFlops": gflops if ok else float("nan")},
+            values={"GFlops": gflops if ok else 0.0},
             ok=ok,
             proc=proc,
         )

@@ -20,9 +20,8 @@ from ...core.env import build_env
 from ...core.process import run_process
 from ...core.timeout import estimate_timeout_sec
 
-# C++ 側にハードコードされている反復回数。NoFlush に N_IT を渡せるようになったら
-# CLI 経由に置き換える（README「既知の制約」参照）。
-N_IT_DEFAULT = 50000
+# NoFlush.cpp の既定反復回数。実行時引数（--n-it）で変更できる。
+N_IT_DEFAULT = 50
 
 _NOFLUSH_DEFAULT = os.path.expanduser("~/Library/Tune_SSRFB/NoFlush")
 
@@ -51,8 +50,9 @@ class SSRFBBenchmark(Benchmark):
     tag = "ssrfb"
     value_fields = ["Time_sec", "GFlops"]
 
-    def __init__(self, exe: Optional[str] = None):
+    def __init__(self, exe: Optional[str] = None, n_it: int = N_IT_DEFAULT):
         self.exe = resolve_exe(exe)
+        self.n_it = n_it
 
     def make_env(self, threads: int) -> dict:
         # カーネル単体計測: BLAS を1スレッドに固定し、LD_PRELOAD を除去。
@@ -61,8 +61,9 @@ class SSRFBBenchmark(Benchmark):
     def run_point(
         self, nb, ib, *, threads, size, env, timeout, wrapper
     ) -> PointResult:
-        # size は NoFlush では未使用（MAT_SIZE は C++側ハードコード）。CSV記録用のメタ。
-        command = [self.exe, str(nb), str(ib)]
+        # NoFlush [NB] [IB] [MAT_SIZE] [N_IT]。size を MAT_SIZE として渡す
+        # （キャッシュ占有量に影響。CSV の size 列にも記録される）。
+        command = [self.exe, str(nb), str(ib), str(size), str(self.n_it)]
         proc = run_process(command, env=env, timeout=timeout, wrapper=wrapper)
         time_sec = parse_time(proc.stdout) if proc.returncode == 0 else None
         ok = time_sec is not None and time_sec > 0
@@ -75,7 +76,7 @@ class SSRFBBenchmark(Benchmark):
 
     def estimate_timeout(self, nb, ib, assumed_gflops):
         return estimate_timeout_sec(
-            flops_ssrfb, nb, ib, assumed_gflops, n_it=N_IT_DEFAULT
+            flops_ssrfb, nb, ib, assumed_gflops, n_it=self.n_it
         )
 
 
@@ -85,12 +86,14 @@ def measure_time(
     *,
     exe: Optional[str] = None,
     threads: int = 1,
+    mat_size: int = 4096,
+    n_it: int = N_IT_DEFAULT,
     timeout: Optional[float] = None,
 ) -> float:
     """チューニング用: (nb, ib) の1回あたり平均実行時間（秒）を返す（失敗時 inf）。"""
-    bench = SSRFBBenchmark(exe=exe)
+    bench = SSRFBBenchmark(exe=exe, n_it=n_it)
     env = bench.make_env(threads)
     result = bench.run_point(
-        nb, ib, threads=threads, size=0, env=env, timeout=timeout, wrapper=None
+        nb, ib, threads=threads, size=mat_size, env=env, timeout=timeout, wrapper=None
     )
     return float(result.values["Time_sec"]) if result.ok else float("inf")

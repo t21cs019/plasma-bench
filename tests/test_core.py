@@ -10,9 +10,13 @@ import unittest
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "..", "src"))
 
+import plasma_perf.benchmarks.ssrfb.runner as ssrfb_runner  # noqa: E402
+import plasma_perf.benchmarks.tileqr.runner as tileqr_runner  # noqa: E402
 from plasma_perf.benchmarks.base import Benchmark, PointResult  # noqa: E402
-from plasma_perf.benchmarks.ssrfb.runner import flops_ssrfb, parse_time  # noqa: E402
-from plasma_perf.benchmarks.tileqr.runner import parse_gflops  # noqa: E402
+from plasma_perf.benchmarks.ssrfb.runner import (  # noqa: E402
+    SSRFBBenchmark, flops_ssrfb, parse_time,
+)
+from plasma_perf.benchmarks.tileqr.runner import TileQRBenchmark, parse_gflops  # noqa: E402
 from plasma_perf.core.csv_io import build_output_path, failure_reason  # noqa: E402
 from plasma_perf.core.process import ProcResult  # noqa: E402
 from plasma_perf.core.sweep import count_points, csv_fieldnames, run_sweep  # noqa: E402
@@ -116,6 +120,56 @@ class TestRunSweep(unittest.TestCase):
             # ib==8 の点はすべて欠測
             self.assertEqual(missing, sum(1 for nb in range(32, 41, 4)
                                           for ib in range(8, nb // 2 + 1, 4) if ib == 8))
+
+
+class TestRunners(unittest.TestCase):
+    """run_process をモックして、コマンド組み立てと欠測値の規約を検証する。"""
+
+    def test_ssrfb_command_carries_matsize_and_nit(self):
+        captured = {}
+
+        def fake_run(command, env=None, timeout=None, wrapper=None):
+            captured["cmd"] = list(command)
+            return ProcResult(0, "128, 16, 0.001", "")
+
+        orig = ssrfb_runner.run_process
+        ssrfb_runner.run_process = fake_run
+        try:
+            bench = SSRFBBenchmark(exe="/bin/true", n_it=123)
+            res = bench.run_point(128, 16, threads=1, size=2048,
+                                  env={}, timeout=None, wrapper=None)
+        finally:
+            ssrfb_runner.run_process = orig
+
+        # NoFlush [NB] [IB] [MAT_SIZE] [N_IT]
+        self.assertEqual(captured["cmd"], ["/bin/true", "128", "16", "2048", "123"])
+        self.assertTrue(res.ok)
+        self.assertAlmostEqual(res.values["GFlops"], (4 * 128 ** 3) / 0.001 / 1e9)
+
+    def test_ssrfb_missing_sentinels(self):
+        orig = ssrfb_runner.run_process
+        ssrfb_runner.run_process = lambda *a, **k: ProcResult(2, "", "boom")
+        try:
+            bench = SSRFBBenchmark(exe="/bin/true")
+            res = bench.run_point(64, 8, threads=1, size=4096,
+                                  env={}, timeout=None, wrapper=None)
+        finally:
+            ssrfb_runner.run_process = orig
+        self.assertFalse(res.ok)
+        self.assertEqual(res.values["Time_sec"], -1.0)
+
+    def test_tileqr_missing_is_zero(self):
+        # 旧 tileQR_bench 互換: 欠測は 0.0 で記録する
+        orig = tileqr_runner.run_process
+        tileqr_runner.run_process = lambda *a, **k: ProcResult(1, "", "boom")
+        try:
+            bench = TileQRBenchmark(exe="/bin/true")
+            res = bench.run_point(64, 8, threads=1, size=256,
+                                  env={}, timeout=None, wrapper=None)
+        finally:
+            tileqr_runner.run_process = orig
+        self.assertFalse(res.ok)
+        self.assertEqual(res.values["GFlops"], 0.0)
 
 
 if __name__ == "__main__":

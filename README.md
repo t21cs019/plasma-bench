@@ -55,6 +55,8 @@ export PYTHONPATH=src
 # --- 計測（bench）---
 python -m plasma_perf bench tileqr --size 4096 --trials 5
 python -m plasma_perf bench ssrfb  --exe /path/to/NoFlush --trials 5
+# ssrfb: MAT_SIZE=8192, N_IT=200 を指定
+python -m plasma_perf bench ssrfb  --exe /path/to/NoFlush --size 8192 --n-it 200 --trials 5
 
 # --- チューニング（tune）---
 python -m plasma_perf tune ssrfb  --counts 5 --trials 20
@@ -73,7 +75,8 @@ python -m plasma_perf viz heatmap --input results/benchmark/xxx.csv --threads 16
 | `target` | `tileqr`（フルQR）/ `ssrfb`（カーネル単体）| 必須 |
 | `--exe` | 実行ファイル。tileqr=plasmatest（既定は環境変数 `PLASMA_TEST`）、ssrfb=NoFlush（既定は `NOFLUSH_PATH`）| 環境変数 |
 | `--threads` | OMP_NUM_THREADS。明示時はファイル名に `th<N>` を付与 | tileqr=全コア / ssrfb=1 |
-| `--size` | 行列サイズ（ssrfb ではCSV記録用メタ）| `4096` |
+| `--size` | 行列サイズ。tileqr=正方行列の次元 / ssrfb=NoFlush の MAT_SIZE（キャッシュ占有量）| `4096` |
+| `--n-it` | **ssrfb 専用**: NoFlush の反復回数 N_IT（tileqr では無視）| `50` |
 | `--nb-min`/`--nb-max`/`--ib-min`/`--step` | スイープ範囲 | `32`/`512`/`8`/`4` |
 | `--trials` | 計測回数 | `1`（本番は5推奨）|
 | `--output` | 出力CSVパス | 省略時は自動命名 |
@@ -113,8 +116,13 @@ SCP_DEST='ryo@desktop:~/tileQR_dashboard/inbox/manual' bash scripts/sync_results
 `GFlops` は `flops(nb, ib) / Time_sec / 1e9`。ssrfb の flops は
 `flops_ssrfb(nb, ib) = 4*nb^3`（Buttari et al. arXiv:0709.1272 §3.2）。
 
-失敗点（非ゼロ終了・パース失敗・タイムアウト）は欠測として記録しつつスイープを継続する
-（`GFlops=NaN`、ssrfb は加えて `Time_sec=-1`）。欠測を暗黙に落とさない。
+失敗点（非ゼロ終了・パース失敗・タイムアウト）は欠測として記録しつつスイープを継続する。
+欠測値の規約は benchmark ごとに異なる:
+
+- **tileqr**: `GFlops=0.0`（旧 tileQR_bench との CSV 互換）
+- **ssrfb**: `Time_sec=-1`, `GFlops=NaN`
+
+いずれもコンソールには「欠測」と表示され、欠測点数として集計される（暗黙に落とさない）。
 
 ## ディレクトリ
 
@@ -159,11 +167,17 @@ logs/                    キャンペーンログ・失敗点の生ログ（giti
 - **tileqr / ssrfb の差は薄い**: コマンド生成・出力パース・flops 式・CSV 列だけ。
   スイープのループ本体（`core/sweep.py`）は1つで両方をまかなう。
 
+## SSRFB カーネル（NoFlush）について
+
+- NoFlush のソースは [`plasma-workspace`](https://github.com/t21cs019/plasma-workspace)
+  の `tune_ssrfb/` に同梱・ビルドされる。`MAT_SIZE`（`--size`）と `N_IT`（`--n-it`）は
+  実行時引数で指定できる（既定 4096 / 50）。
+- `N_IT` を大きくすると平均が安定する一方 1 点の所要時間が増える。`nb` が大きい領域ほど
+  1 点が重くなるので、フルスイープ前に `--nb-max` を段階的に上げて確認すること。
+
 ## 既知の制約
 
-- ssrfb は **N_IT=50000 が NoFlush(C++) 側ハードコード**のため、nb が大きいほど
-  1点の所要時間が急増する。フルスイープ前に `--nb-max` を段階的に上げて確認すること。
-- `--timeout-sec` 省略時の ssrfb タイムアウトは `flops_ssrfb` と `--assumed-gflops`
+- `--timeout-sec` 省略時の ssrfb タイムアウトは `flops_ssrfb`・`--n-it`・`--assumed-gflops`
   からの粗い見積り。実測が大きく外れる場合は明示指定すること。
 - 自動 resume（既存CSVを読んで計測済み点をスキップ）は未実装。
 
