@@ -41,32 +41,33 @@ git clone https://github.com/t21cs019/plasma-perf.git
 cd plasma-perf
 
 # 3a. 計測だけなら追加インストール不要（標準ライブラリで動く）
-# 3b. チューニング・可視化を使う場合のみ:
-python3 -m pip install -e ".[tuning,viz]"
+# 3b. チューニング・可視化を使う場合のみ（uv + uv.lock で再現）:
+bash scripts/setup_python.sh          # uv 導入 + uv sync --extra tuning --extra viz
 ```
+
+> チューニング/可視化は uv の仮想環境（`.venv`）で動かす。実行は `uv run python -m ...`。
+> 計測（bench）は標準ライブラリのみなので uv 無しの `python3 -m ...` でも動く。
 
 ## 統一CLI
 
 すべて `python -m plasma_perf <command>` で呼ぶ（`src/` を PYTHONPATH に載せる）。
 
 ```bash
+# --- 計測（bench）: 標準ライブラリのみ。uv 無しでも動く ---
 export PYTHONPATH=src
-
-# --- 計測（bench）---
-python -m plasma_perf bench tileqr --size 4096 --trials 5
-python -m plasma_perf bench ssrfb  --exe /path/to/NoFlush --trials 5
+python3 -m plasma_perf bench tileqr --size 4096 --trials 5
+python3 -m plasma_perf bench ssrfb  --exe /path/to/NoFlush --trials 5
 # ssrfb: MAT_SIZE=8192, N_IT=200 を指定
-python -m plasma_perf bench ssrfb  --exe /path/to/NoFlush --size 8192 --n-it 200 --trials 5
+python3 -m plasma_perf bench ssrfb  --exe /path/to/NoFlush --size 8192 --n-it 200 --trials 5
 
-# --- チューニング（tune）---
-python -m plasma_perf tune ssrfb  --counts 5 --trials 20
-python -m plasma_perf tune select --nb-min 192 --nb-max 336 --counts 10 --trials 50
-
-# --- 可視化（viz）---
-python -m plasma_perf viz heatmap --input results/benchmark/xxx.csv --threads 16
+# --- チューニング（tune）/ 可視化（viz）: uv の venv で実行 ---
+uv run python -m plasma_perf tune ssrfb  --counts 5 --trials 20
+uv run python -m plasma_perf tune select --nb-min 192 --nb-max 336 --counts 10 --trials 50
+uv run python -m plasma_perf viz heatmap --input results/benchmark/xxx.csv --threads 16
 ```
 
 本番計測・チューニングは tmux ラッパー経由で回すと SSH 切断に耐える（後述）。
+`scripts/run_campaign.sh` は任意コマンドを包むので、`-- uv run python -m ...` も渡せる。
 
 ### bench のオプション（`plasma_perf bench {tileqr,ssrfb}`）
 
@@ -93,7 +94,7 @@ python -m plasma_perf viz heatmap --input results/benchmark/xxx.csv --threads 16
 ```bash
 scripts/run_campaign.sh -- python -m plasma_perf bench tileqr --size 4096 --trials 5
 scripts/run_campaign.sh -- python -m plasma_perf bench ssrfb  --exe ~/Library/Tune_SSRFB/NoFlush --trials 5
-SESSION=tune scripts/run_campaign.sh -- python -m plasma_perf tune ssrfb --counts 5 --trials 20
+SESSION=tune scripts/run_campaign.sh -- uv run python -m plasma_perf tune ssrfb --counts 5 --trials 20
 
 tmux attach -t bench       # 進捗確認（Ctrl-b d で離脱）
 tail -f logs/<最新>.log
@@ -152,6 +153,7 @@ src/plasma_perf/
     cli.py               `viz heatmap` エントリ
 scripts/
   run_campaign.sh        任意コマンドを tmux+ログで包む汎用ラッパー
+  setup_python.sh        uv で Python 環境（tuning/viz）を構築（uv.lock 固定）
   sync_results.sh        rclone / scp 転送
 tests/
   test_core.py           パーサ・flops・スイープの単体テスト（実行ファイル不要）
