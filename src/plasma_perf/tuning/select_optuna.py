@@ -1,23 +1,23 @@
-"""
-select_optuna.py — nb の探索範囲を絞った Optuna チューニング
+"""select_optuna.py — nb の探索範囲を絞った Optuna チューニング。
 
-normalで良好な結果が出た範囲を絞り込んで精密に探索する。
+normal で良好な結果が出た範囲を絞り込んで精密に探索する。
 nb_min・nb_max はマシンごとに指定する。
 """
-import optuna
-import time
 import os
+import time
 
-from core.run_time_dgeqrf import run_time_dgeqrf
+import optuna
+
+from ..benchmarks.tileqr.runner import measure_gflops
 
 optuna.logging.set_verbosity(optuna.logging.WARNING)
 
 
 def make_objective(size: int, nb_min: int, nb_max: int, num_threads: int):
-    def objective(trial: optuna.Trial) -> float:
+    def objective(trial: "optuna.Trial") -> float:
         nb = 2 * trial.suggest_int("nb", nb_min // 2, nb_max // 2)
         ib = 2 * trial.suggest_int("ib", 2, nb // 4)
-        return run_time_dgeqrf(num_threads, size, nb, ib)
+        return measure_gflops(nb, ib, threads=num_threads, size=size)
     return objective
 
 
@@ -28,12 +28,6 @@ def select_tuning(
     nb_max: int = 336,
     num_threads: int = None,
 ):
-    """
-    Returns
-    -------
-    study   : optuna.Study
-    elapsed : float  実行時間（秒）
-    """
     if num_threads is None:
         num_threads = os.cpu_count()
 
