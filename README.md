@@ -139,12 +139,32 @@ tmux attach -t bench       # 進捗確認（Ctrl-b d で離脱）
 tail -f logs/<最新>.log
 ```
 
-結果の転送:
+結果の転送（rclone / scp / http）:
 
 ```bash
 bash scripts/sync_results.sh rclone   # OneDrive 等へ
 SCP_DEST='ryo@desktop:~/tileQR_dashboard/inbox/manual' bash scripts/sync_results.sh scp
+# ダッシュボードの受信API（ZimaOS等のコンテナ）へ直接POST → 自動取込:
+HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/sync_results.sh http
+#   HTTP_KEY はダッシュボード sources.toml のソースキー。受信APIに認証をかけている
+#   場合は HTTP_TOKEN=<token> も付ける（ダッシュボードの DASHBOARD_TOKEN と一致）。
 ```
+
+### 計測プラン(PROGRESS.md)をダッシュボードと往復同期
+
+`plan/PROGRESS.md` をダッシュボードの「計測プラン」タブで編集したい場合は
+`scripts/sync_plan.sh` で push / pull する。
+
+```bash
+python3 -m plasma_perf plan scan                                   # 進捗を最新化
+HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/sync_plan.sh push   # 送る
+#   → ダッシュボードで行追加・note/skip を編集して保存
+HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/sync_plan.sh pull   # 取り戻す
+python3 -m plasma_perf plan scan && python3 -m plasma_perf plan run      # 反映して実行
+```
+
+`status`/`coverage` はこの計測機の `plan scan` が results/ から算出する列なので、
+ダッシュボードでは読み取り専用。編集できるのは計画列（sizes/threads/nb 等）と note。
 
 ## CSV 形式
 
