@@ -85,6 +85,45 @@ uv run python -m plasma_perf viz heatmap --input results/benchmark/xxx.csv --thr
 | `--assumed-gflops` | 動的タイムアウト見積り用の下限想定GFlops | `5.0` |
 | `--wrapper` | コマンド前置文字列（例 `"taskset -c 2"`）| なし |
 | `--save-logs` | 生ログ保存方針 `{all, errors, none}` | `errors` |
+| `--throttle-check` | サーマルスロットリング監視（nb ごとに `core_throttle_count` 増加を記録・警告）| OFF |
+| `--throttle-abort` | throttling 検知時に計測を中断（`--throttle-check` と併用）| OFF |
+
+## 計測進捗の管理と自動実行（plan）
+
+「どの構成をどこまで計測したか」を `plan/PROGRESS.md`（gitignore）で管理し、
+足りない分を自動で回す。`ssrfb` / `tileqr` / `tuning` の3つの表を持つ。
+
+```bash
+export PYTHONPATH=src
+
+# 1. 計測したい構成を追加（sizes×threads×… を直積展開。手で表を書かなくてよい）
+python3 -m plasma_perf plan add ssrfb  --sizes 4096,8192 --threads 1 --n-it 50 --trials 5
+python3 -m plasma_perf plan add tileqr --sizes 1024,2048,4096 --threads 1,12 --trials 5
+python3 -m plasma_perf plan add tuning --mode select --sizes 4096 --threads 12 --n-trials 25,50 --counts 10
+
+# 2. results/ を走査して status/coverage を自動更新（手で表を直したら再実行）
+python3 -m plasma_perf plan scan
+
+# 3. 未計測（missing/partial）を上から実行。partial は未充足 nb から再開
+python3 -m plasma_perf plan run --dry-run          # まず対象を確認
+python3 -m plasma_perf plan run                     # 実行
+python3 -m plasma_perf plan run --only ssrfb --throttle-check
+```
+
+- **`plan scan` が表を自動整形**するので、手で1行を雑に足しても桁が揃う（手編集も楽）。
+- `status`/`coverage` はコードが自動更新。それ以外の列と `note` は手動編集可。
+- `note` に `skip` / `manual` と書くと `plan run` はその行を実行しない
+  （手動取得済み・別形式データの除外に使う）。
+- 過去・手動の CSV も、標準の命名・列（`{host}_..._size{S}_..`）に沿って
+  `results/benchmark/` にあれば `plan scan` が自動で拾う（このマシンの host 分のみ）。
+- tmux で回し続ける: `scripts/run_campaign.sh -- python3 -m plasma_perf plan run --throttle-check`
+
+## サーマルスロットリング検知
+
+`--throttle-check`（既定 OFF）で `/sys/devices/system/cpu/cpu*/thermal_throttle/core_throttle_count`
+を nb ごとに読み、増加していれば警告表示 ＋ `results/benchmark/..._throttle.log` に記録する。
+`--throttle-abort` を併用すると検知時に計測を止める。カウンタが無いシステムでは監視を
+スキップして計測は続行する。
 
 ## 本番計測（tmux ラッパー）
 
@@ -136,12 +175,18 @@ src/plasma_perf/
     csv_io.py            save_rows / build_output_path / save_raw_log / failure_reason
     timeout.py           estimate_timeout_sec
     sweep.py             run_sweep（nb×ib スイープ本体・CSV フラッシュ・欠測処理）
-    paths.py             results / logs の標準パス
+    throttle.py          サーマルスロットリング監視（core_throttle_count）
+    paths.py             results / logs / plan の標準パス
   benchmarks/
     base.py              Benchmark（抽象基底）/ PointResult
     cli.py               `bench {tileqr,ssrfb}` エントリ
     tileqr/runner.py     plasmatest dgeqrf を1点実行 / measure_gflops
     ssrfb/runner.py      NoFlush を1点実行 / measure_time / flops_ssrfb
+  plan/                  計測進捗の管理と未計測分の自動実行
+    manifest.py          PROGRESS.md（3表）の読み書き（桁自動整形）
+    coverage.py          results/ 走査 → status/coverage/未充足 nb 算出
+    runner.py            未計測分の実行（partial は未充足 nb から再開）
+    cli.py               plan {init,scan,add,run}
   tuning/                Optuna チューニング（要 [tuning]）
     base.py              結果保存 / study 可視化
     normal_optuna.py     広域探索

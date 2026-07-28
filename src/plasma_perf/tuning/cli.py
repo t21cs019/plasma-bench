@@ -25,14 +25,29 @@ def _best_params_with_ib(trial) -> dict:
     return params
 
 
+def optuna_run_dir(mode: str, size: int, threads: int, n_trials: int) -> str:
+    """結果ディレクトリ: results/optuna/<mode>/s<size>_th<threads>/<n_trials>/。
+
+    size/threads をパスに含めることで、plan の coverage が
+    (mode, size, threads, n_trials) 単位で充足状況を判定できる。
+    """
+    return os.path.join(OPTUNA_RESULTS_DIR, mode, f"s{size}_th{threads}", str(n_trials))
+
+
+def optuna_csv_path(mode: str, size: int, threads: int, n_trials: int) -> str:
+    return os.path.join(optuna_run_dir(mode, size, threads, n_trials), "optuna_results.csv")
+
+
 def run_mode(mode: str, tuning_fn, counts: int, trials_list: List[int], extra_kwargs: dict) -> None:
-    result_dir = os.path.join(OPTUNA_RESULTS_DIR, mode)
+    size = extra_kwargs.get("size", 4096)
+    threads = extra_kwargs.get("num_threads") or 0
 
     for n_trials in trials_list:
-        csv_path = os.path.join(result_dir, str(n_trials), "optuna_results.csv")
+        run_dir = optuna_run_dir(mode, size, threads, n_trials)
+        csv_path = os.path.join(run_dir, "optuna_results.csv")
 
         for i in range(counts):
-            fig_dir = os.path.join(result_dir, str(n_trials), f"run_{i + 1}")
+            fig_dir = os.path.join(run_dir, f"run_{i + 1}")
             os.makedirs(fig_dir, exist_ok=True)
 
             print(f"\n=== [{mode}] {i + 1}/{counts} 回目 (trials={n_trials}) ===")
@@ -50,7 +65,7 @@ def run_mode(mode: str, tuning_fn, counts: int, trials_list: List[int], extra_kw
             print(f"  最適: nb={best_params.get('nb')}, ib={best_params.get('ib')}, "
                   f"GFLOPS={best_value:.4f}, {elapsed:.1f}秒")
 
-    print(f"\n[{mode}] 完了 → {result_dir}")
+    print(f"\n[{mode}] 完了 → {os.path.join(OPTUNA_RESULTS_DIR, mode)}")
 
 
 def build_parser() -> argparse.ArgumentParser:

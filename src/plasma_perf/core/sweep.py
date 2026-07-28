@@ -16,6 +16,7 @@ import sys
 from typing import List, Optional, Sequence
 
 from .csv_io import failure_reason, save_raw_log, save_rows
+from .throttle import ThrottleMonitor
 from ..benchmarks.base import Benchmark
 
 
@@ -50,11 +51,18 @@ def run_sweep(
     assumed_gflops: float = 5.0,
     wrapper: Optional[str] = None,
     save_logs: str = "errors",
+    throttle_check: bool = False,
+    throttle_abort: bool = False,
 ) -> int:
     """スイープを実行し、欠測点数を返す。"""
     env = benchmark.make_env(threads)
     fieldnames = csv_fieldnames(benchmark)
     points_per_trial = count_points(nb_min, nb_max, ib_min, step)
+
+    throttle_log = os.path.splitext(output_csv)[0] + "_throttle.log"
+    throttle = ThrottleMonitor(
+        enabled=throttle_check, abort=throttle_abort, log_path=throttle_log
+    )
 
     print("=" * 60)
     print(f" {benchmark.name} ベンチマーク（nb・ib スイープ）")
@@ -67,12 +75,15 @@ def run_sweep(
     print(f"  timeout      : {'動的見積もり' if timeout_sec is None else f'{timeout_sec}秒固定'}")
     print(f"  wrapper      : {wrapper or '(なし)'}")
     print(f"  save-logs    : {save_logs}")
+    print(f"  throttle     : {'ON' if throttle_check else 'OFF'}"
+          f"{'（検知で中断）' if throttle_check and throttle_abort else ''}")
     print(f"  output       : {output_csv}")
     print("=" * 60)
 
     write_header = not os.path.exists(output_csv)
     missing = 0
     nb = nb_min
+    throttle.start()
 
     try:
         for trial in range(1, trials + 1):
@@ -117,11 +128,19 @@ def run_sweep(
                 # nb ごとに CSV へ書き出し
                 save_rows(buffer, output_csv, fieldnames, write_header)
                 write_header = False
+
+                # nb の区切りでスロットリングを確認
+                if throttle.check(f"nb={nb}") and throttle_abort:
+                    print("\n[中断] throttling を検知したため計測を停止します"
+                          "（--throttle-abort）。ここまでの結果は保存済みです。")
+                    throttle.summary()
+                    sys.exit(3)
     except KeyboardInterrupt:
         print("\n[中断] Ctrl-C を検知しました。ここまでの結果は保存済みです。")
         print(f"       再開する場合は --nb-min {nb} 以降を指定して再実行してください。")
         sys.exit(130)
 
+    throttle.summary()
     print(f"\n[完了] 結果を保存しました: {output_csv}")
     print(f"       欠測: {missing} 点（全 {points_per_trial * trials} 点中）")
     return missing
