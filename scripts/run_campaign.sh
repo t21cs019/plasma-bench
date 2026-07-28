@@ -75,12 +75,25 @@ mkdir -p "${REPO_ROOT}/logs"
 # 実行コマンド文字列を安全に組み立てる（%q でエスケープ）
 CMDSTR="$(printf '%q ' "${CMD_ARGS[@]}")"
 
-RUN_LINE="cd $(printf %q "${REPO_ROOT}")"
-RUN_LINE+=" && export PYTHONPATH=$(printf %q "${SRC_DIR}")\${PYTHONPATH:+:\$PYTHONPATH}"
+# tmux 内で走らせる bash スクリプト本体を組み立てる。
+# ポイント: コマンドが失敗（非ゼロ終了）したらセッションを保持し、エラーを画面に残す。
+# （そうしないと即失敗時に tmux が閉じてしまい "no sessions" になって原因が分からない）
+SCRIPT="cd $(printf %q "${REPO_ROOT}") || exit 1
+export PYTHONPATH=$(printf %q "${SRC_DIR}")\${PYTHONPATH:+:\$PYTHONPATH}"
 if [ -n "${CONFIG}" ]; then
-    RUN_LINE+=" && source $(printf %q "${CONFIG}")"
+    SCRIPT+="
+source $(printf %q "${CONFIG}")"
 fi
-RUN_LINE+=" && ${CMDSTR}2>&1 | tee $(printf %q "${LOG}")"
+SCRIPT+="
+${CMDSTR}2>&1 | tee $(printf %q "${LOG}")
+ec=\${PIPESTATUS[0]}
+echo
+echo \"[run_campaign] 終了コード=\$ec  ログ: ${LOG}\"
+if [ \"\$ec\" -ne 0 ]; then
+    echo \"[run_campaign] 失敗しました。上の出力を確認してください。\"
+    echo \"[run_campaign] このセッションは保持しています（閉じる: exit / tmux kill-session -t ${SESSION}）。\"
+    exec bash
+fi"
 
 echo "======================================================"
 echo " tmux セッション '${SESSION}' でコマンドを開始します"
@@ -90,7 +103,7 @@ echo "   config  : ${CONFIG:-(なし: 環境変数はデフォルト値)}"
 echo "   log     : ${LOG}"
 echo "======================================================"
 
-tmux new-session -d -s "${SESSION}" "${RUN_LINE}"
+tmux new-session -d -s "${SESSION}" "bash -c $(printf %q "${SCRIPT}")"
 
 echo "[起動] tmux セッション '${SESSION}' で実行を開始しました。"
 echo ""
