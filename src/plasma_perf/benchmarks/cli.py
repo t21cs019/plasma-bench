@@ -57,6 +57,11 @@ def build_parser() -> argparse.ArgumentParser:
                         help='コマンド前置文字列（例: "taskset -c 2"）')
     parser.add_argument("--save-logs", choices=["all", "errors", "none"], default="errors",
                         help="生ログの保存方針（既定 errors）")
+    parser.add_argument("--throttle-check", action="store_true",
+                        help="サーマルスロットリングを監視する（既定 OFF）。"
+                             "nb ごとに core_throttle_count の増加を確認・記録")
+    parser.add_argument("--throttle-abort", action="store_true",
+                        help="throttling 検知時に計測を中断する（--throttle-check と併用）")
     return parser
 
 
@@ -96,6 +101,7 @@ def main(argv: Optional[List[str]] = None) -> int:
         output_csv=output_csv, log_dir=log_dir,
         timeout_sec=args.timeout_sec, assumed_gflops=args.assumed_gflops,
         wrapper=args.wrapper, save_logs=args.save_logs,
+        throttle_check=args.throttle_check, throttle_abort=args.throttle_abort,
     )
     return 0
 

@@ -1,5 +1,6 @@
-results/
-logs/
+/results/
+/logs/
+/plan/
 .venv/
 __pycache__/
 *.pyc
