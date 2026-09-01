@@ -44,7 +44,8 @@ EXTRA_ARGS="${EXTRA_ARGS:-}"
 # SIZES を逐次実行する1つの bash コマンド文字列を組み立てる
 # （run_campaign.sh は単一コマンドを -- 以降で受け取るため、複数サイズは
 # ループとして1つの `bash -c` にまとめて渡す）。
-RUN_CMD="set -e"
+RUN_CMD='set -e
+export PATH="$HOME/.local/bin:$PATH"'
 for s in ${SIZES}; do
     RUN_CMD+=$'\n'"echo '=== size=${s} ==='"
     RUN_CMD+=$'\n'"uv run python tuning/run_tuning.py --size ${s} --methods $(printf %q "${METHODS}") --repeat ${REPEAT} --threads ${THREADS} --cooldown ${COOLDOWN} --output results/tuning/ ${EXTRA_ARGS}"
