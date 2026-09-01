@@ -14,11 +14,13 @@ tuning = [
     "plotly>=6.0.1",
     "kaleido==0.2.1",
 ]
-# 結果の可視化（ヒートマップ等）。
+# 結果の可視化（ヒートマップ等）。pyarrow は tuning/evaluate.py の
+# qr_sweep.parquet 読み込み（pd.read_parquet）にも使う。
 viz = [
     "pandas>=2.0.0",
     "matplotlib>=3.7.0",
     "seaborn>=0.13.0",
+    "pyarrow>=14.0.0",
 ]
 
 [project.scripts]
