@@ -4,7 +4,10 @@ beta_fit.py — SSRFB（実体は dtsmqr、kernel_bench.py 参照）を計測し
 計測点: nb ∈ {64, 128, 256, 384, 512}、各 nb について ib <= 64 の範囲を
 2刻みで1点ずつ計測し（kernel_bench.py 参照。1点=1プロセス起動）、最大 GFlops
 （MaxIB と同じ考え方）を採用する。--beta-reps は NoFlush 内部の平均化回数
-（N_IT）に渡す（既定1、サーバは3推奨。kernel_bench.py 冒頭の理由を参照）。
+（N_IT）に渡す（既定50。dtsmqr グリッド計測の kernel_reps や参照データ
+（ssrfb.parquet, N_IT=50）と揃える。低い値だとキャッシュコールドの1発だけを
+測ることになり β が過大評価される。2026-09-01 ユーザ指摘・実測で確認。
+kernel_bench.py 冒頭の理由も参照）。
 
 GFlops = G_inf・nb/(nb+β) を最小二乗フィットして β を返す。
 フィットは scipy を使わず、自前の1次元探索で行う:
@@ -23,7 +26,7 @@ BETA_NB_POINTS = (64, 128, 256, 384, 512)
 IB_MAX_FOR_BETA = 64
 
 
-def measure_maxib_gflops(nb: int, threads: int, reps: int = 1, exe: str = None):
+def measure_maxib_gflops(nb: int, threads: int, reps: int = 50, exe: str = None):
     """nb 固定で ib<=64 を計測し、MaxIB（最大 GFlops）の (ib, gflops) を返す。
 
     reps は NoFlush 内部の平均化回数（N_IT）に渡す。1点=1プロセス起動で
@@ -86,7 +89,7 @@ def _fit_beta_ginf(nb_values, gflops_values, beta_grid=None):
 
 def fit_beta(
     threads: int,
-    reps: int = 1,
+    reps: int = 50,
     exe: str = None,
     nb_points=BETA_NB_POINTS,
     raw_csv: str = None,

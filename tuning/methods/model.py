@@ -48,6 +48,17 @@ WARM_START_FACTORS = (1.0, 0.75, 1.3)
 # β計測に渡していた）。
 DEFAULT_KERNEL_THREADS = 1
 
+# beta_reps は NoFlush の N_IT（内部平均化回数）にそのまま渡る（kernel_bench.py
+# 冒頭参照）。agullo の kernel_reps と同じ既定値(50)に揃える。参照データ
+# （ssrfb.parquet）も N_IT=50 で採取されているため、条件を合わせないと
+# β推定が壊れる: N_IT=1 だとキャッシュコールドの1発だけを測ることになり、
+# nb が小さいほど「RAMからのロード時間」が支配的になって相対的に損をし、
+# GFlops(nb) 曲線が飽和しないように見えて β が過大評価される
+# （2026-09-01 ユーザ指摘・実測で確認: N_IT=1 だと β≈316、N_IT=50 の参照値は
+# β≈56〜63。指示書に「既定1、サーバは3推奨」と書いたのは筆者(指示書作成者)の
+# 誤りで、意図していた「外部から測り直す回数」とNoFlush内部のN_ITは別物だった）。
+DEFAULT_BETA_REPS = 50
+
 
 def get_physical_cores() -> int:
     """lscpu -p=CORE のユニーク数（nproc ではない）。取得できない場合は os.cpu_count()。"""
@@ -71,8 +82,10 @@ def run(size, threads, seed, ctx=None, **kwargs):
     """
     kwargs:
         beta        : 外部から与える β（指定時は計測をスキップし time_prep_sec=0）
-        beta_reps   : β 推定の NoFlush 内部平均化回数 N_IT（既定1、サーバは3推奨。
-                      kernel_bench.py 冒頭の理由により1点=1プロセス起動で完結する）
+        beta_reps   : β 推定の NoFlush 内部平均化回数 N_IT（既定50。kernel_reps
+                      と揃える。参照データも N_IT=50 で採取されているため。
+                      下げるとカーネル計測は速くなるが β が過大評価される。
+                      モジュール冒頭参照）
         band_thr    : predict_band の閾値（既定 model_predict.THR）
         n_trials    : Optuna 探索試行数（既定16）
         top_k       : 再検証するペア数（既定3）
@@ -88,7 +101,7 @@ def run(size, threads, seed, ctx=None, **kwargs):
           beta, band_lo, band_hi, gflops_observed, notes
     """
     beta_given = kwargs.get("beta")
-    beta_reps = kwargs.get("beta_reps", 1)
+    beta_reps = kwargs.get("beta_reps", DEFAULT_BETA_REPS)
     band_thr = kwargs.get("band_thr", model_predict.THR)
     n_trials = kwargs.get("n_trials", N_TRIALS)
     top_k = kwargs.get("top_k", TOP_K)

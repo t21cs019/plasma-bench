@@ -203,7 +203,7 @@ def estimate_dry_run(methods, size, threads, repeat, agullo_kwargs, optuna_kwarg
                 f"推定時間≈{est_sec:.0f}秒(粗い目安)/回 × repeat={repeat}"
             )
         elif m == "model":
-            beta_reps = model_kwargs.get("beta_reps", 1)
+            beta_reps = model_kwargs.get("beta_reps", model.DEFAULT_BETA_REPS)
             n_trials = model_kwargs.get("n_trials", model.N_TRIALS)
             top_k = model_kwargs.get("top_k", model.TOP_K)
             verify_reps = model_kwargs.get("verify_reps", model.VERIFY_REPS)
@@ -254,7 +254,10 @@ def parse_args():
 
     # model
     p.add_argument("--beta", type=float, default=None, help="外部から与えるβ(指定時は計測をスキップ)")
-    p.add_argument("--beta-reps", type=int, default=1)
+    p.add_argument("--beta-reps", type=int, default=model.DEFAULT_BETA_REPS,
+                    help="β推定(SSRFB/dtsmqr計測)のNoFlush内部平均化回数N_IT。"
+                         "既定はkernel_repsと同じ50（参照データもN_IT=50で採取。"
+                         "下げるとβが過大評価されるので注意。model.py冒頭参照）")
     p.add_argument("--n-trials-model", type=int, default=model.N_TRIALS)
     p.add_argument("--top-k-model", type=int, default=model.TOP_K)
     p.add_argument("--verify-reps-model", type=int, default=model.VERIFY_REPS)
