@@ -142,6 +142,23 @@ uv run python tuning/evaluate.py \
 その後 `--kernel-threads` バグを修正した版で `model`（size=4096, repeat=10）を
 再実行し完走を確認したが、この回は「実装判断」7節の `--beta-reps` 既定値
 バグ（N_IT=1 で計測していた）を踏んだままだったため、β・帯・最終選択nb/ib
-が信頼できない（**このCSVも参考値扱い**）。7節の修正後、`model` を再実行して
-β≈56付近になることを確認済み。`agullo`・`optuna_full` はまだ修正版
-（`--kernel-threads`・`--beta-reps` 修正後）でのフル実行を行っていない。
+が信頼できない（**このCSVも参考値扱い**）。
+
+7節の修正後、`model`（size=4096, repeat=10）を再実行し完走を確認した
+（`results/tuning/tuning_i3-10100_size4096_th4_20260901-235940.csv`）。
+全10回で β=56.234・帯=[154, 501] と完全に安定（真の最適 nb=260 を含む）、
+gflops_observed は 124.9〜127.8（平均約125.9、既知ピーク132.7の約94.9%）。
+これが `model` の修正版確定データ。
+
+`optuna_full`（size=4096, repeat=10, n_trials=100, qr_reps=5）も完走を確認した
+（`results/tuning/tuning_i3-10100_size4096_th4_20260902-084607.csv`。dtsmqrカーネル
+を一切使わないため `--kernel-threads`/`--beta-reps` の影響は受けない）。
+gflops_observed は 128.9〜131.1（平均約129.6、既知ピーク132.7の約97.7%）で
+`model` より高め。run_id=0 は正解表の既知最良ペア (nb=260, ib=52) と完全一致した。
+`time_total_sec` は run により 2117〜8338秒とばらつきが大きい（見積り1000秒/回の
+2〜8倍）。特に run_id=1 の8338秒は他と比べて突出しており、探索中に極端に遅い
+(nb, ib) の組み合わせ（ib が nb に対して小さすぎる領域等、PLASMAのタイルQRが
+非効率になりやすい）を踏んだ可能性がある。原因の詳細切り分けはまだ行っていない。
+
+`agullo` はまだ修正版（`--kernel-threads`・`--ib-step` 対応後）でのフル実行を
+行っていない。
