@@ -251,6 +251,12 @@ def parse_args():
     # optuna_full
     p.add_argument("--n-trials-optuna", type=int, default=optuna_full.N_TRIALS)
     p.add_argument("--qr-reps-optuna", type=int, default=optuna_full.QR_REPS)
+    p.add_argument("--nb-min-optuna", type=int, default=optuna_full.NB_MIN,
+                    help="optuna_full の nb 探索下限。既定は卒論通り4だが、"
+                         "小さすぎる nb は PLASMA のタスク数が (size/nb)^3 で"
+                         "爆発しOOMを招くため、機種によっては引き上げが必要"
+                         "（卒論再現から逸脱するため notes 列に記録される）")
+    p.add_argument("--nb-max-optuna", type=int, default=optuna_full.NB_MAX)
 
     # model
     p.add_argument("--beta", type=float, default=None, help="外部から与えるβ(指定時は計測をスキップ)")
@@ -276,7 +282,10 @@ def main():
         nb_min=args.nb_min, nb_max=args.nb_max, nb_step=args.nb_step, ib_step=args.ib_step,
         kernel_reps=args.kernel_reps, kernel_threads=args.kernel_threads, exe=args.noflush_exe,
     )
-    optuna_kwargs = dict(n_trials=args.n_trials_optuna, qr_reps=args.qr_reps_optuna)
+    optuna_kwargs = dict(
+        n_trials=args.n_trials_optuna, qr_reps=args.qr_reps_optuna,
+        nb_min=args.nb_min_optuna, nb_max=args.nb_max_optuna,
+    )
     model_kwargs = dict(
         beta=args.beta, beta_reps=args.beta_reps, n_trials=args.n_trials_model,
         top_k=args.top_k_model, verify_reps=args.verify_reps_model,

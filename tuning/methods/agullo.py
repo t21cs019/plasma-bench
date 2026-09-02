@@ -225,6 +225,13 @@ def run(size, threads, seed, ctx=None, **kwargs):
 
     selected, note = select_heuristic2(maxib_pairs)
 
+    if nb_min != DEFAULT_NB_MIN or nb_max != DEFAULT_NB_MAX:
+        note += (
+            f" | DEVIATION from thesis: nb range overridden to [{nb_min},{nb_max}] "
+            f"(thesis default [{DEFAULT_NB_MIN},{DEFAULT_NB_MAX}]). Small nb makes "
+            f"PLASMA's task count blow up as (size/nb)^3, which OOM'd this host at nb=4."
+        )
+
     n_qr_exec = 0
     best_nb, best_ib, best_gflops = None, None, -1.0
     t1 = time.time()

@@ -72,6 +72,14 @@ def run(size, threads, seed, ctx=None, **kwargs):
     nb = 2 * best.params["nb_half"]
     ib = 2 * best.params["ib_half"]
 
+    notes = ""
+    if nb_min != NB_MIN or nb_max != NB_MAX:
+        notes = (
+            f"DEVIATION from thesis: nb range overridden to [{nb_min},{nb_max}] "
+            f"(thesis default [{NB_MIN},{NB_MAX}]). Small nb makes PLASMA's task "
+            f"count blow up as (size/nb)^3, which OOM'd this host at nb=4."
+        )
+
     return {
         "nb": nb,
         "ib": ib,
@@ -83,5 +91,5 @@ def run(size, threads, seed, ctx=None, **kwargs):
         "band_lo": None,
         "band_hi": None,
         "gflops_observed": best.value,
-        "notes": "",
+        "notes": notes,
     }
