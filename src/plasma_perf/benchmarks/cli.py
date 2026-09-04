@@ -45,6 +45,9 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--nb-min", type=int, default=32)
     parser.add_argument("--nb-max", type=int, default=512)
     parser.add_argument("--ib-min", type=int, default=8)
+    parser.add_argument("--ib-max", type=int, default=None,
+                        help="ib の上限（既定: nb//2）。既存スイープの ib 下限側の穴埋めなど、"
+                             "ib の範囲を nb//2 より狭く絞りたいときに指定する")
     parser.add_argument("--step", type=int, default=4)
     parser.add_argument("--trials", type=int, default=1)
     parser.add_argument("--output", type=str, default=None,
@@ -96,7 +99,7 @@ def main(argv: Optional[List[str]] = None) -> int:
     run_sweep(
         bench,
         threads=threads, size=args.size,
-        nb_min=args.nb_min, nb_max=args.nb_max, ib_min=args.ib_min, step=args.step,
+        nb_min=args.nb_min, nb_max=args.nb_max, ib_min=args.ib_min, ib_max=args.ib_max, step=args.step,
         trials=args.trials,
         output_csv=output_csv, log_dir=log_dir,
         timeout_sec=args.timeout_sec, assumed_gflops=args.assumed_gflops,

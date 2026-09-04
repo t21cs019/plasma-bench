@@ -20,9 +20,11 @@ from .throttle import ThrottleMonitor
 from ..benchmarks.base import Benchmark
 
 
-def count_points(nb_min: int, nb_max: int, ib_min: int, step: int) -> int:
+def count_points(
+    nb_min: int, nb_max: int, ib_min: int, step: int, ib_max: Optional[int] = None
+) -> int:
     return sum(
-        len(range(ib_min, nb // 2 + 1, step))
+        len(range(ib_min, (ib_max if ib_max is not None else nb // 2) + 1, step))
         for nb in range(nb_min, nb_max + 1, step)
     )
 
@@ -47,6 +49,7 @@ def run_sweep(
     trials: int,
     output_csv: str,
     log_dir: str,
+    ib_max: Optional[int] = None,
     timeout_sec: Optional[float] = None,
     assumed_gflops: float = 5.0,
     wrapper: Optional[str] = None,
@@ -57,7 +60,7 @@ def run_sweep(
     """スイープを実行し、欠測点数を返す。"""
     env = benchmark.make_env(threads)
     fieldnames = csv_fieldnames(benchmark)
-    points_per_trial = count_points(nb_min, nb_max, ib_min, step)
+    points_per_trial = count_points(nb_min, nb_max, ib_min, step, ib_max)
 
     throttle_log = os.path.splitext(output_csv)[0] + "_throttle.log"
     throttle = ThrottleMonitor(
@@ -69,7 +72,7 @@ def run_sweep(
     print(f"  threads      : {threads}")
     print(f"  size         : {size}")
     print(f"  nb           : {nb_min} ～ {nb_max}  step={step}")
-    print(f"  ib           : {ib_min} ～ nb//2      step={step}")
+    print(f"  ib           : {ib_min} ～ {'nb//2' if ib_max is None else ib_max}      step={step}")
     print(f"  trials       : {trials}")
     print(f"  points/trial : {points_per_trial}")
     print(f"  timeout      : {'動的見積もり' if timeout_sec is None else f'{timeout_sec}秒固定'}")
@@ -93,7 +96,7 @@ def run_sweep(
 
             for nb in range(nb_min, nb_max + 1, step):
                 buffer = []
-                for ib in range(ib_min, nb // 2 + 1, step):
+                for ib in range(ib_min, (ib_max if ib_max is not None else nb // 2) + 1, step):
                     timeout = (
                         timeout_sec
                         if timeout_sec is not None
