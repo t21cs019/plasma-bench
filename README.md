@@ -1,4 +1,4 @@
-# plasma-perf
+# plasma-bench
 
 PLASMA タイルQR分解（`dgeqrf`）と、その構成カーネル **DSSRFB/DTSMQR** の
 **計測・チューニング・可視化**を集約したツールキット。
@@ -21,7 +21,7 @@ tileqr / ssrfb の差分だけを各 `benchmarks/` に閉じ込めている。
 ```
 plasma-workspace/   ← ネイティブ環境ビルド専用（マシンごとに1回）
   setup/            OpenBLAS / PLASMA / NoFlush のビルド, config.sh, check
-plasma-perf/        ← このリポジトリ（Python を集約）
+plasma-bench/        ← このリポジトリ（Python を集約）
   src/plasma_perf/  core / benchmarks / tuning / viz
 ```
 
@@ -37,8 +37,8 @@ git clone https://github.com/t21cs019/plasma-workspace.git
 cd plasma-workspace && bash setup/install.sh && bash setup/check.sh && cd ..
 
 # 2. このリポジトリを隣に clone
-git clone https://github.com/t21cs019/plasma-perf.git
-cd plasma-perf
+git clone https://github.com/t21cs019/plasma-bench.git
+cd plasma-bench
 
 # 3a. 計測だけなら追加インストール不要（標準ライブラリで動く）
 # 3b. チューニング・可視化を使う場合のみ（uv + uv.lock で再現）:
