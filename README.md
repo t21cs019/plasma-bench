@@ -88,6 +88,31 @@ uv run python -m plasma_perf viz heatmap --input results/benchmark/xxx.csv --thr
 | `--throttle-check` | サーマルスロットリング監視（nb ごとに `core_throttle_count` 増加を記録・警告）| OFF |
 | `--throttle-abort` | throttling 検知時に計測を中断（`--throttle-check` と併用）| OFF |
 
+### ssrfb の全コア同時実行（`plasma_perf.benchmarks.ssrfb_parallel`）
+
+1ソケットの全物理コアに NoFlush を1本ずつ `taskset -c` で固定し、**同じ (nb, ib) を一斉に**
+計測する。全プロセスの終了を待ってから次の点へ進むので、途中で本数が減ったり別の点と
+競合したりしない。上の `bench ssrfb`（1コア計測）とは別系統で、そちらには手を入れていない。
+
+- コアは `lscpu -p` の SOCKET 列から選ぶ（物理コアごとに1論理CPU、SMT 兄弟は除外、
+  現在の affinity 外は除外）。NPS4 や CPU 番号がソケット間で交互の機種でも1ソケットになる。
+- N_IT=50 のままだと小さい nb の計時区間がミリ秒以下で、プロセス間で重ならない。
+  そのため N_IT は計時区間がおよそ `--target-sec`（既定 2 秒）になるよう点ごとに決める
+  （下限 50）。nb の最初の点は1本だけ N_IT=50 で回して見積もり、以降は直前の点の
+  最も遅いコアから決める。
+- 1行 = 1コアの1点。先頭6列は1コア計測と同じで、後ろに `n_par, cpu, n_it, end_skew_sec`。
+  ファイル名は `{host}_ssrfb-par{N}_size{S}_nb{min}-{max}_t{trials}_{ts}.csv`、
+  隣に計測条件の控え `..._meta.txt`（使ったCPU・引数・lscpu）を残す。
+
+```bash
+# まず構成を確認（使うコア・本数・必要メモリ・所要時間の見積もり）
+PYTHONPATH=src python3 -m plasma_perf.benchmarks.ssrfb_parallel --size 4096 --dry-run
+# 本番（tmux）
+scripts/run_campaign.sh -- python3 -m plasma_perf.benchmarks.ssrfb_parallel --size 4096
+# 比較用の m=1（同じ N_IT の決め方で1本だけ）
+scripts/run_campaign.sh -- python3 -m plasma_perf.benchmarks.ssrfb_parallel --size 4096 --cpus 0
+```
+
 ## 計測進捗の管理と自動実行（plan）
 
 「どの構成をどこまで計測したか」を `plan/PROGRESS.md`（gitignore）で管理し、
