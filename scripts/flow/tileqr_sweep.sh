@@ -62,7 +62,7 @@ run_size() {
         echo
         echo "# === 計測条件 ==="
         echo "P=${P} SIZE=${size} STEP=${step} NB=${NB_MIN}-${NB_MAX} REP=${REP}"
-        echo "OMP_PLACES=${OMP_PLACES:-（なし）} OMP_PROC_BIND=${OMP_PROC_BIND:-（なし）}"
+        echo "OMP_PLACES=${OMP_PLACES:-（なし）} OMP_PROC_BIND=${OMP_PROC_BIND:-（なし）} KMP_AFFINITY=${KMP_AFFINITY:-（なし）}"
         echo "numactl ${NUMACTL_ARGS[*]}"
         echo "PBS_JOBID=${PBS_JOBID:-（なし）}"
     } >> "${base}_meta.txt"

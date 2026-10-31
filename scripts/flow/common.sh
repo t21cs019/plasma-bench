@@ -87,11 +87,21 @@ flow_select_nodes() {
 # $1 = スレッド固定: close | none
 # $2 = メモリの置き方: bind（--membind）| interleave（--interleave）
 # NUMACTL_ARGS と、OMP_PLACES / OMP_PROC_BIND の環境変数を設定する。
+# plasmatest が Intel の OpenMP（libiomp5）を直接リンクしている場合は、OMP_PLACES=cores で
+# 全スレッドが CPU 0 に固定されてしまう（研究室の EPYC 7543、2026-11-01）。そのときは
+# Intel の KMP_AFFINITY で同じ並べ方（1スレッド1コア、先頭から詰める）を指定する。
 flow_set_cond() {
     local bind=$1 mem=$2
+    unset OMP_PLACES OMP_PROC_BIND KMP_AFFINITY
     case "${bind}" in
-        close) export OMP_PLACES=cores OMP_PROC_BIND=close ;;
-        none)  unset OMP_PLACES OMP_PROC_BIND ;;
+        close)
+            if ldd "${PLASMA_TEST}" | grep -q libiomp5; then
+                export KMP_AFFINITY=granularity=core,compact
+            else
+                export OMP_PLACES=cores OMP_PROC_BIND=close
+            fi
+            ;;
+        none) ;;
         *) echo "[ERROR] unknown bind: ${bind}"; exit 1 ;;
     esac
     case "${mem}" in
@@ -158,7 +168,7 @@ flow_meta() {
     echo "config: ${CONFIG}"
     echo "plasma-bench: $(git -C "${REPO}" rev-parse --short HEAD 2>/dev/null || echo '?')"
     echo "plasmatest: ${PLASMA_TEST}"
-    ldd "${PLASMA_TEST}" | grep -E 'plasma|openblas|gomp'
+    ldd "${PLASMA_TEST}" | grep -E 'plasma|openblas|mkl|gomp|iomp'
     echo "SMT active: ${SMT}"
     echo "SOCKET: ${SOCKET} / NODES: ${NODES} (${CORES_PER_NODE} cores/node)"
     echo "OPENBLAS_NUM_THREADS=${OPENBLAS_NUM_THREADS}"
