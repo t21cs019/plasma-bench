@@ -2,12 +2,15 @@
 # =============================================================================
 # submit_campaign.sh — 不老・弐 Type I の本番計測（p=192、close・membind）をまとめて投入する
 #
-#   計画（2026-10-31）: 1024 / 2048 / 4096 / 8192 を各5反復、16384 を1反復。
+#   計画（2026-10-31）: 1024 / 2048 / 4096 / 8192 を各5反復（nb 32〜512 の全域）、16384 を1反復。
+#   16384 は1日で終わるよう、最適 nb の付近だけを粗く測る（nb 192〜512、nb・ib とも 16 刻み）。
+#   これまでの機種の 16384 の最適 nb は 360〜504、95% の範囲の下端は 256〜344。
+#   点はどれも 8 刻みの格子の上にあるので、残り（nb 32〜184、間の nb）は後から足せる。
 #   1反復 = 1ジョブ = 1ノード（AOBA と同じく、反復は別のノードで取る）。
 #   t1-single は1人20本までなので、短い 1024 と 2048 は同じジョブで続けて流し、全部で16本にする。
 #
 #     ジョブ                 本数  見積もり   walltime
-#     size 16384             1     1〜2.5 日  120 時間
+#     size 16384（236 点）   1     6〜12 時間 30 時間
 #     size 8192              5     7〜8 時間  18 時間
 #     size 4096              5     4〜6 時間  12 時間
 #     size 1024 → 2048       5     1〜2 時間  6 時間
@@ -28,9 +31,9 @@ SUBMIT=0
 FLOW_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 JOB="${FLOW_DIR}/job_sweep.sh"
 
-# <SIZE（":" で複数）> <反復の番号> <walltime>。長いものから投入する
+# <SIZE（":" で複数）> <反復の番号> <walltime> [追加の変数（"," 区切り）]。長いものから投入する
 PLAN=(
-    "16384     1         120:00:00"
+    "16384     1         30:00:00 NB_MIN=192,STEP=16"
     "8192      1,2,3,4,5 18:00:00"
     "4096      1,2,3,4,5 12:00:00"
     "1024:2048 1,2,3,4,5 06:00:00"
@@ -42,11 +45,12 @@ fi
 
 njobs=0
 for row in "${PLAN[@]}"; do
-    read -r size reps walltime <<< "${row}"
+    read -r size reps walltime extra <<< "${row}"
     IFS=, read -r -a rep_list <<< "${reps}"
     for rep in "${rep_list[@]}"; do
         name="tq_s${size//:/-}_r${rep}"
-        cmd=(qsub -N "${name}" -l "walltime=${walltime}" -v "SIZE=${size},REP=${rep}" "${JOB}")
+        vars="SIZE=${size},REP=${rep}${extra:+,${extra}}"
+        cmd=(qsub -N "${name}" -l "walltime=${walltime}" -v "${vars}" "${JOB}")
         echo "${cmd[*]}"
         if [ "${SUBMIT}" -eq 1 ]; then
             "${cmd[@]}"
