@@ -150,6 +150,10 @@ flow_check_affinity() {
     OMP_AFFINITY_FORMAT='AFFINITY level=%L thread=%n cpus=%A' \
         numactl "${NUMACTL_ARGS[@]}" "${PLASMA_TEST}" dgeqrf --dim=2048x2048 --nb=128 --ib=32 \
         > "${out}" 2>&1 || true
+    if ! grep -q '^AFFINITY level=1 ' "${out}"; then
+        echo "[note] OMP_DISPLAY_AFFINITY が出力されない（GCC 8 以前の libgomp など）。/proc から読む"
+        flow_proc_affinity "${p}" >> "${out}"
+    fi
 
     local nthr nset
     nthr=$(grep '^AFFINITY level=1 ' "${out}" | awk '{print $3}' | sort -u | wc -l)
@@ -159,6 +163,28 @@ flow_check_affinity() {
         echo "[ERROR] スレッドが1コアずつに固定されていない。${out} を確認すること"
         exit 1
     fi
+}
+
+# OMP_DISPLAY_AFFINITY は OpenMP 5.0（libgomp は GCC 9 以降）。AOBA の GCC 8.5 では出ないので、
+# plasmatest を裏で流し、スレッドが P 本そろったところで各スレッドの Cpus_allowed_list を読む。
+# 出力は OMP_DISPLAY_AFFINITY と同じ形（AFFINITY level=1 thread=<tid> cpus=<集合>）にそろえる。
+#   $1 = P
+flow_proc_affinity() {
+    local p=$1 pid i n
+    OMP_NUM_THREADS="${p}" \
+        numactl "${NUMACTL_ARGS[@]}" "${PLASMA_TEST}" dgeqrf --dim=4096x4096 --nb=128 --ib=32 \
+        > /dev/null 2>&1 &
+    pid=$!
+    for i in $(seq 1 300); do
+        n=$(ls "/proc/${pid}/task" 2>/dev/null | wc -l)
+        [ "${n}" -ge "${p}" ] && break
+        sleep 0.1
+    done
+    for t in /proc/"${pid}"/task/*; do
+        awk -v t="${t##*/}" '/^Cpus_allowed_list:/ {print "AFFINITY level=1 thread=" t " cpus=" $2}' \
+            "${t}/status" 2>/dev/null
+    done
+    wait "${pid}" || true
 }
 
 # --- 計測条件の控え -----------------------------------------------------------
