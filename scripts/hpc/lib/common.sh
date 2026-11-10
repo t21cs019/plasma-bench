@@ -1,9 +1,9 @@
 #!/usr/bin/env bash
 # =============================================================================
-# common.sh — スパコン（不老・弐 Type I、AOBA-B）の tileQR 計測で共通に使う関数
+# common.sh — numactl で固定して流す tileQR 計測（不老・弐 Type I、AOBA-B、研究室の EPYC 7543）の共通関数
 #
-#   bind_ab.sh / tileqr_sweep.sh から source して使う。単体では実行しない。
-#   機種は環境変数 MACHINE（flow | aoba）で指定する。必須。scripts/hpc/<MACHINE>/machine.sh
+#   scripts/hpc/lib/ の各スクリプトから source して使う。単体では実行しない。
+#   機種は環境変数 MACHINE（flow | aoba | epyc7543）で指定する。必須。scripts/hpc/<MACHINE>/machine.sh
 #   から構成名（結果のファイル名と meta.txt に入る）と既定のスレッド数を読む。
 #   以前は構成名が flow2-t1 に決め打ちで、AOBA で流した結果にも flow2-t1 と書かれていた。
 #
@@ -19,7 +19,7 @@ LIB_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO="$(cd "${LIB_DIR}/../../.." && pwd)"
 WSPACE="${PLASMA_WORKSPACE:-${REPO}/../plasma-workspace}"
 
-MACHINE=${MACHINE:?MACHINE を指定すること（flow | aoba）}
+MACHINE=${MACHINE:?MACHINE を指定すること（flow | aoba | epyc7543）}
 [ -f "${LIB_DIR}/../${MACHINE}/machine.sh" ] \
     || { echo "[ERROR] unknown MACHINE: ${MACHINE}（scripts/hpc/${MACHINE}/machine.sh が無い）"; exit 1; }
 # shellcheck source=/dev/null
@@ -95,16 +95,17 @@ hpc_select_nodes() {
 # --- 条件を設定する -----------------------------------------------------------
 # $1 = スレッド固定: close | none
 # $2 = メモリの置き方: bind（--membind）| interleave（--interleave）
+# $3 = 固定の方法を決めるために見る実行ファイル（省略時は plasmatest）
 # NUMACTL_ARGS と、OMP_PLACES / OMP_PROC_BIND の環境変数を設定する。
 # plasmatest が Intel の OpenMP（libiomp5）を直接リンクしている場合は、OMP_PLACES=cores で
 # 全スレッドが CPU 0 に固定されてしまう（研究室の EPYC 7543、2026-11-01）。そのときは
 # Intel の KMP_AFFINITY で同じ並べ方（1スレッド1コア、先頭から詰める）を指定する。
 hpc_set_cond() {
-    local bind=$1 mem=$2
+    local bind=$1 mem=$2 exe=${3:-${PLASMA_TEST}}
     unset OMP_PLACES OMP_PROC_BIND KMP_AFFINITY
     case "${bind}" in
         close)
-            if ldd "${PLASMA_TEST}" | grep -q libiomp5; then
+            if ldd "${exe}" | grep -q libiomp5; then
                 export KMP_AFFINITY=granularity=core,compact
             else
                 export OMP_PLACES=cores OMP_PROC_BIND=close
@@ -216,6 +217,48 @@ hpc_meta() {
     echo
     echo "# === numactl -H ==="
     numactl -H
+}
+
+# --- CSV の集計 --------------------------------------------------------------
+# 列名で指定した条件ごとに、平均・最小・最大・変動係数を出す。値が 0 以下の行は欠測として数える。
+#   $1 = CSV, $2 = 集計する列, $3 以降 = 条件の列
+hpc_summary() {
+    local csv=$1 val=$2
+    shift 2
+    echo "# ${val}"
+    printf '%-10s ' "$@"
+    printf '%4s %12s %12s %12s %6s %4s\n' n mean min max 'cv%' fail
+    awk -F, -v val="${val}" -v keys="$*" '
+        { sub(/\r$/, "") }     # plasma_perf の CSV は改行が CRLF
+        NR == 1 {
+            for (i = 1; i <= NF; i++) col[$i] = i
+            nk = split(keys " " val, kn, " ")
+            for (i = 1; i <= nk; i++) if (!(kn[i] in col)) { print "[ERROR] 列がない: " kn[i] > "/dev/stderr"; bad = 1; exit 1 }
+            nk--
+            next
+        }
+        {
+            k = ""
+            for (i = 1; i <= nk; i++) k = k sprintf("%-10s ", $col[kn[i]])
+            seen[k] = 1
+            v = $col[val] + 0
+            if (v <= 0) { fail[k]++; next }
+            n[k]++; s[k] += v; ss[k] += v * v
+            if (!(k in mn) || v < mn[k]) mn[k] = v
+            if (!(k in mx) || v > mx[k]) mx[k] = v
+        }
+        END {
+            if (bad) exit 1
+            for (k in seen) {
+                if (n[k] > 0) {
+                    m = s[k] / n[k]; var = ss[k] / n[k] - m * m; if (var < 0) var = 0
+                    printf "%s%4d %12.4f %12.4f %12.4f %6.1f %4d\n",
+                        k, n[k], m, mn[k], mx[k], 100 * sqrt(var) / m, fail[k]
+                } else {
+                    printf "%s%4d %12s %12s %12s %6s %4d\n", k, 0, "-", "-", "-", "-", fail[k]
+                }
+            }
+        }' "${csv}" | sort -V
 }
 
 # --- 計測前後の状態（他ジョブの混入・クロック）--------------------------------

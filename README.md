@@ -223,11 +223,14 @@ scripts/
     setup_python.sh        uv で Python 環境（tuning/viz）を構築（uv.lock 固定）
     sync_results.sh        rclone / scp / http 転送
     sync_plan.sh           plan/PROGRESS.md をダッシュボードと往復同期
-  hpc/                   スパコン（PBS のジョブ）で使うもの
-    lib/                   機種によらない計測の中身。MACHINE=flow|aoba で機種を指定（必須）
+  hpc/                   numactl で固定して流す計測（スパコンのジョブと研究室の EPYC 7543）
+    lib/                   機種によらない計測の中身。MACHINE=flow|aoba|epyc7543 で機種を指定（必須）
       common.sh              NUMA ノードの選択・スレッド固定の検査・計測条件の控え
       bind_ab.sh             スレッド固定の A/B テスト
       tileqr_sweep.sh        tileQR の nb・ib スイープ（1ジョブ = 1反復）
+      thread_scaling.sh      スレッド数だけを変えて tileQR を測る
+      repeat_ab.sh           同じプロセスで複数回分解する（plasmatest --repeat）
+      task_overhead.sh       空のタスクでタスク1個あたりの時間を測る（native/task_overhead）
     flow/                  名古屋大 不老・弐 Type I
       machine.sh             構成名（flow2-t1_s1）・既定のスレッド数（192）
       job_bind_ab.sh         qsub するジョブスクリプト（ASCII のみ）
@@ -237,6 +240,11 @@ scripts/
     aoba/                  東北大 AOBA-B
       machine.sh             構成名（aoba-b_s1）・既定のスレッド数（64）
       job_bind_ab.sh
+    epyc7543/              研究室の EPYC 7543
+      machine.sh             構成名（epyc_s1）・既定のスレッド数（32）
+      campaigns/<日付>_<名前>/  計測ごとの条件（例 2026-11-11_tau）
+native/
+  task_overhead/         OpenMP タスクの時間を測る C プログラム（libgomp 版と libiomp5 版）
 tests/
   test_core.py           パーサ・flops・スイープの単体テスト（実行ファイル不要）
 results/benchmark/       計測CSV（gitignore）
