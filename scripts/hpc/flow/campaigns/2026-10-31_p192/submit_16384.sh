@@ -14,7 +14,7 @@
 #
 #   high は submit_campaign.sh と同時に投入する（合わせて20本 = t1-single の同時実行の上限）。
 #   rest は submit_campaign.sh のジョブが終わって枠が空いてから投入する。
-#   walltime はメンテナンスの前に収まるよう自動で縮める。
+#   FLOW_MAINT を設定すると、walltime をメンテナンスの前に収まるよう縮める。
 #
 #   使い方（ログインノードで、plasma-bench の直下から）:
 #       bash scripts/hpc/flow/campaigns/2026-10-31_p192/submit_16384.sh high              # 表示だけ
@@ -22,7 +22,8 @@
 #       bash scripts/hpc/flow/campaigns/2026-10-31_p192/submit_16384.sh rest --submit
 # =============================================================================
 set -euo pipefail
-FLOW_MAINT="2026-11-02 08:00 +0900"   # メンテナンス（有償利用の開始）
+# 次のメンテナンスが決まったら、walltime がかからないように日時を設定する（設定しなければ縮めない）
+# FLOW_MAINT="YYYY-MM-DD HH:MM +0900"
 source "$(dirname "${BASH_SOURCE[0]}")/../../submit_lib.sh"
 
 STAGE=${1:-}

@@ -25,13 +25,13 @@
 
 2. `meta.txt` の `ldd` の行で、カーネルが OpenBLAS か MKL かを確かめる
 
-3. 本番を 3 → 1 → 2 の順に流す（SSH が切れても続くように tmux で）
+3. 本番を 3 → 1 → 2 の順に流す（SSH が切れても続くように tmux で）。別々に起動すると同時に走るので、1行でつなぐ
 
    ```bash
-   SESSION=tau3 scripts/local/run_campaign.sh -- bash $C/3_repeat.sh
-   SESSION=tau1 scripts/local/run_campaign.sh -- bash $C/1_thread_scaling.sh
-   SESSION=tau2 scripts/local/run_campaign.sh -- bash $C/2_task_overhead.sh
+   SESSION=tau scripts/local/run_campaign.sh -- bash -c "bash $C/3_repeat.sh && bash $C/1_thread_scaling.sh && bash $C/2_task_overhead.sh"
    ```
+
+   進み具合は `tmux attach -t tau` で見る（`Ctrl-b d` で離脱）。
 
 ## 結果
 

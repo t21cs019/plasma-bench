@@ -15,14 +15,15 @@
 #
 #   見積もりは A/B テスト（225 点で 43 分）からの外挿。1点あたりの時間は、分解そのものより
 #   plasmatest の行列生成と検算（--test=y）が長い。walltime を超えても nb ごとに CSV は残るので、
-#   続きは NB_MIN を指定して流し直す。walltime はメンテナンスの前に収まるよう自動で縮める。
+#   続きは NB_MIN を指定して流し直す。FLOW_MAINT を設定すると、walltime をメンテナンスの前に収まるよう縮める。
 #
 #   使い方（ログインノードで、plasma-bench の直下から）:
 #       bash scripts/hpc/flow/campaigns/2026-10-31_p192/submit_campaign.sh            # 投入するコマンドを表示するだけ
 #       bash scripts/hpc/flow/campaigns/2026-10-31_p192/submit_campaign.sh --submit   # 実際に qsub する
 # =============================================================================
 set -euo pipefail
-FLOW_MAINT="2026-11-02 08:00 +0900"   # メンテナンス（有償利用の開始）
+# 次のメンテナンスが決まったら、walltime がかからないように日時を設定する（設定しなければ縮めない）
+# FLOW_MAINT="YYYY-MM-DD HH:MM +0900"
 source "$(dirname "${BASH_SOURCE[0]}")/../../submit_lib.sh"
 
 SUBMIT=0
