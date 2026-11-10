@@ -6,9 +6,9 @@
 # 計測・チューニングともこのラッパー経由で回す（対象は -- 以降のコマンドで指定）。
 #
 # 使い方:
-#   scripts/run_campaign.sh -- python -m plasma_perf bench tileqr --size 4096 --trials 5
-#   scripts/run_campaign.sh -- python -m plasma_perf bench ssrfb --exe /path/NoFlush --trials 5
-#   SESSION=tune scripts/run_campaign.sh -- python -m plasma_perf tune ssrfb --counts 5 --trials 20
+#   scripts/local/run_campaign.sh -- python -m plasma_perf bench tileqr --size 4096 --trials 5
+#   scripts/local/run_campaign.sh -- python -m plasma_perf bench ssrfb --exe /path/NoFlush --trials 5
+#   SESSION=tune scripts/local/run_campaign.sh -- python -m plasma_perf tune ssrfb --counts 5 --trials 20
 #
 # 環境変数:
 #   SESSION            tmux セッション名（既定 bench）
@@ -20,7 +20,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 SRC_DIR="${REPO_ROOT}/src"
 
 SESSION="${SESSION:-bench}"
@@ -44,7 +44,7 @@ fi
 
 if [ "${#CMD_ARGS[@]}" -eq 0 ]; then
     echo "[ERROR] 実行するコマンドがありません。"
-    echo "        例: scripts/run_campaign.sh -- python -m plasma_perf bench tileqr --trials 5"
+    echo "        例: scripts/local/run_campaign.sh -- python -m plasma_perf bench tileqr --trials 5"
     exit 1
 fi
 
@@ -56,7 +56,7 @@ fi
 if tmux has-session -t "${SESSION}" 2>/dev/null; then
     echo "[ERROR] tmux セッション '${SESSION}' は既に存在します。"
     echo "        確認: tmux attach -t ${SESSION}"
-    echo "        別名で起動: SESSION=bench2 scripts/run_campaign.sh -- <コマンド>"
+    echo "        別名で起動: SESSION=bench2 scripts/local/run_campaign.sh -- <コマンド>"
     exit 1
 fi
 

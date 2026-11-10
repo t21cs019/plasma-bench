@@ -2,7 +2,7 @@
 # =============================================================================
 # run_tuning_campaign.sh — tuning/run_tuning.py を tmux セッション内で逐次実行する
 #
-# scripts/run_campaign.sh（既存の tmux+ログ汎用ラッパー）の上に薄く被せている
+# scripts/local/run_campaign.sh（既存の tmux+ログ汎用ラッパー）の上に薄く被せている
 # だけ（指示書 3.7「既存の run_campaign.sh と同じ作法で書く」）。tmux 起動・
 # 既存セッション名の衝突チェック・ログ tee・失敗時のセッション保持は
 # run_campaign.sh 側の実装をそのまま使う（車輪の再発明をしない）。
@@ -11,8 +11,8 @@
 # tuning_<host>_size<S>_<ts>.log と同等の情報を持つ）。
 #
 # 使い方:
-#   SIZE=4096 REPEAT=10 THREADS=4 bash scripts/run_tuning_campaign.sh
-#   SIZES="1024 2048 4096" REPEAT=10 THREADS=4 bash scripts/run_tuning_campaign.sh
+#   SIZE=4096 REPEAT=10 THREADS=4 bash scripts/local/run_tuning_campaign.sh
+#   SIZES="1024 2048 4096" REPEAT=10 THREADS=4 bash scripts/local/run_tuning_campaign.sh
 #
 # 環境変数:
 #   SIZE       単一サイズ（既定 4096）。SIZES 指定時はそちらが優先。
@@ -30,7 +30,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 SIZE="${SIZE:-4096}"
 SIZES="${SIZES:-${SIZE}}"
@@ -58,4 +58,4 @@ echo "   methods : ${METHODS}"
 echo "   repeat  : ${REPEAT}, threads=${THREADS}, cooldown=${COOLDOWN}"
 echo "======================================================"
 
-SESSION="${SESSION}" bash "${REPO_ROOT}/scripts/run_campaign.sh" -- bash -c "${RUN_CMD}"
+SESSION="${SESSION}" bash "${REPO_ROOT}/scripts/local/run_campaign.sh" -- bash -c "${RUN_CMD}"

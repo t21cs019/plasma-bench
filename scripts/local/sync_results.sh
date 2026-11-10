@@ -8,9 +8,9 @@
 #   - http   : ダッシュボードの受信API（ZimaOS等のコンテナ）へPOST → 自動取込
 #
 # 使い方:
-#   bash scripts/sync_results.sh rclone
-#   bash scripts/sync_results.sh scp
-#   bash scripts/sync_results.sh http
+#   bash scripts/local/sync_results.sh rclone
+#   bash scripts/local/sync_results.sh scp
+#   bash scripts/local/sync_results.sh http
 #
 # 転送先は環境変数で上書き:
 #   RCLONE_REMOTE   例: "onedrive:research/tileQR/inbox/manual"
@@ -22,7 +22,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # plasma-workspace の config.sh があれば読む（転送先の既定値等を供給できる）
 WORKSPACE_DIR="${PLASMA_WORKSPACE:-${REPO_ROOT}/../plasma-workspace}"
@@ -42,7 +42,7 @@ HTTP_TOKEN="${HTTP_TOKEN:-}"
 MODE="${1:-}"
 
 if [ -z "${MODE}" ]; then
-    echo "使い方: bash scripts/sync_results.sh [rclone|scp|http]"
+    echo "使い方: bash scripts/local/sync_results.sh [rclone|scp|http]"
     exit 1
 fi
 
@@ -68,7 +68,7 @@ case "${MODE}" in
     scp)
         if [ -z "${SCP_DEST}" ]; then
             echo "[ERROR] SCP_DEST が未設定です。"
-            echo "        例: SCP_DEST='ryo@desktop:~/tileQR_dashboard/inbox/manual' bash scripts/sync_results.sh scp"
+            echo "        例: SCP_DEST='ryo@desktop:~/tileQR_dashboard/inbox/manual' bash scripts/local/sync_results.sh scp"
             exit 1
         fi
         echo "scp で転送 -> ${SCP_DEST}"
@@ -81,7 +81,7 @@ case "${MODE}" in
         fi
         if [ -z "${HTTP_URL}" ] || [ -z "${HTTP_KEY}" ]; then
             echo "[ERROR] HTTP_URL と HTTP_KEY が必要です。"
-            echo "        例: HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/sync_results.sh http"
+            echo "        例: HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/local/sync_results.sh http"
             exit 1
         fi
         # 全CSV（＋隣にあれば .meta.json）を1回の multipart POST でまとめて送る。

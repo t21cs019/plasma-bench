@@ -15,21 +15,21 @@
 #   HTTP_TOKEN  共有トークン（任意。ダッシュボードの DASHBOARD_TOKEN と一致させる）
 #
 # 使い方:
-#   HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/sync_plan.sh push
-#   HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/sync_plan.sh pull
+#   HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/local/sync_plan.sh push
+#   HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/local/sync_plan.sh pull
 #
 # 典型フロー:
 #   1. python3 -m plasma_perf plan scan          # 進捗を最新化
-#   2. bash scripts/sync_plan.sh push            # ダッシュボードへ送って編集してもらう
+#   2. bash scripts/local/sync_plan.sh push            # ダッシュボードへ送って編集してもらう
 #   3. （ダッシュボードで行追加や skip を編集・保存）
-#   4. bash scripts/sync_plan.sh pull            # 編集版を取り戻す
+#   4. bash scripts/local/sync_plan.sh pull            # 編集版を取り戻す
 #   5. python3 -m plasma_perf plan scan          # status/coverage を再計算
 #   6. python3 -m plasma_perf plan run           # 未計測分を実行
 # =============================================================================
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # plasma-workspace の config.sh があれば読む（HTTP_URL 等の既定値を供給できる）
 WORKSPACE_DIR="${PLASMA_WORKSPACE:-${REPO_ROOT}/../plasma-workspace}"
@@ -51,7 +51,7 @@ if ! command -v curl &>/dev/null; then
 fi
 if [ -z "${HTTP_URL}" ] || [ -z "${HTTP_KEY}" ]; then
     echo "[ERROR] HTTP_URL と HTTP_KEY が必要です。"
-    echo "        例: HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/sync_plan.sh push"
+    echo "        例: HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/local/sync_plan.sh push"
     exit 1
 fi
 
@@ -85,7 +85,7 @@ case "${MODE}" in
         echo "        反映: python3 -m plasma_perf plan scan && python3 -m plasma_perf plan run"
         ;;
     *)
-        echo "使い方: bash scripts/sync_plan.sh [push|pull]"
+        echo "使い方: bash scripts/local/sync_plan.sh [push|pull]"
         exit 1
         ;;
 esac

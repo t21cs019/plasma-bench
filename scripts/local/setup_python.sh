@@ -6,9 +6,9 @@
 # ヒートマップ可視化を行うときにこれを実行する。uv.lock でバージョンを固定・再現する。
 #
 # 使い方:
-#   bash scripts/setup_python.sh              # tuning + viz を導入（既定）
-#   bash scripts/setup_python.sh --extra tuning   # tuning のみ
-#   bash scripts/setup_python.sh --all-extras     # 全 extra
+#   bash scripts/local/setup_python.sh              # tuning + viz を導入（既定）
+#   bash scripts/local/setup_python.sh --extra tuning   # tuning のみ
+#   bash scripts/local/setup_python.sh --all-extras     # 全 extra
 #
 # 実行後の使い方:
 #   uv run python -m plasma_perf tune ssrfb --counts 5 --trials 20
@@ -16,7 +16,7 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
+REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 cd "${REPO_ROOT}"
 
 # --- 1. uv のインストール（管理者権限不要）-----------------------------------

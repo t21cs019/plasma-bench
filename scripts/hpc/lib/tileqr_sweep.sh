@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# tileqr_sweep.sh — 不老・弐 Type I で tileQR の nb・ib スイープを1反復ぶん流す
+# tileqr_sweep.sh — スパコンで tileQR の nb・ib スイープを1反復ぶん流す
 #
 #   1 ジョブ = 1 反復（--trials 1）。AOBA と同じく、反復はジョブを分けて稼ぐ。
 #   SIZE に複数のサイズを ":" でつなぐと、同じジョブの中で順に流す（例 SIZE=1024:2048）。
@@ -11,11 +11,12 @@
 #   --membind と --interleave の差はばらつきの範囲だった。
 #
 #   使い方（ジョブスクリプトから。変数で条件を渡す）:
-#       P=192 SIZE=4096 REP=1 bash scripts/flow/tileqr_sweep.sh
-#       SIZE=1024:2048 REP=3 bash scripts/flow/tileqr_sweep.sh
+#       MACHINE=flow P=192 SIZE=4096 REP=1 bash scripts/hpc/lib/tileqr_sweep.sh
+#       MACHINE=flow SIZE=1024:2048 REP=3 bash scripts/hpc/lib/tileqr_sweep.sh
 #
 #   変数:
-#       P       スレッド数 = 物理コア数（既定 192 = 1ソケット）
+#       MACHINE flow | aoba（必須）
+#       P       スレッド数 = 物理コア数（既定は machine.sh の MACHINE_P = 1ソケット）
 #       SIZE    行列サイズ（必須）。":" 区切りで複数
 #       REP     反復の番号（既定 1。ファイル名にだけ使う）
 #       BIND    close | none（既定 close）
@@ -29,7 +30,7 @@
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
-P=${P:-192}
+P=${P:-${MACHINE_P}}
 SIZE=${SIZE:?SIZE を指定すること（例 SIZE=4096、SIZE=1024:2048）}
 REP=${REP:-1}
 BIND=${BIND:-close}
@@ -37,10 +38,10 @@ MEM=${MEM:-bind}
 NB_MIN=${NB_MIN:-32}
 NB_MAX=${NB_MAX:-512}
 
-flow_setup
-flow_select_nodes "${P}"
-flow_set_cond "${BIND}" "${MEM}"
-TAG=$(flow_cond_tag "${BIND}" "${MEM}")
+hpc_setup
+hpc_select_nodes "${P}"
+hpc_set_cond "${BIND}" "${MEM}"
+TAG=$(hpc_cond_tag "${BIND}" "${MEM}")
 
 # 1サイズぶんのスイープ
 run_size() {
@@ -57,7 +58,7 @@ run_size() {
     local log="logs/${CONFIG}_${TAG}_tileqr_size${size}_th${P}_r${REP}.log"
 
     echo "===== preflight (size ${size}) ====="
-    flow_meta > "${base}_meta.txt"
+    hpc_meta > "${base}_meta.txt"
     {
         echo
         echo "# === 計測条件 ==="
@@ -66,9 +67,9 @@ run_size() {
         echo "numactl ${NUMACTL_ARGS[*]}"
         echo "PBS_JOBID=${PBS_JOBID:-（なし）}"
     } >> "${base}_meta.txt"
-    flow_check_cores "${P}"
-    flow_check_affinity "${P}" "${BIND}" "${base}_affinity.txt"
-    flow_snapshot "開始" | tee -a "${base}_meta.txt"
+    hpc_check_cores "${P}"
+    hpc_check_affinity "${P}" "${BIND}" "${base}_affinity.txt"
+    hpc_snapshot "開始" | tee -a "${base}_meta.txt"
 
     echo "===== sweep start (size ${size}) ====="
     SECONDS=0
@@ -82,7 +83,7 @@ run_size() {
     echo "===== sweep end (size ${size}, ${SECONDS} sec) ====="
 
     # 終了時の free が開始時より大きく減っていれば、他のジョブが同じノードで動いていた可能性がある
-    flow_snapshot "終了" | tee -a "${base}_meta.txt"
+    hpc_snapshot "終了" | tee -a "${base}_meta.txt"
     [ -f "${base}.csv" ] && echo "rows: $(( $(wc -l < "${base}.csv") - 1 ))"
 }
 

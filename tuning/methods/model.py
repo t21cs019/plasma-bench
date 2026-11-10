@@ -22,7 +22,7 @@ try:
 except ImportError as e:  # pragma: no cover
     raise ImportError(
         "model には optuna が必要です。"
-        "`bash scripts/setup_python.sh` を実行し、"
+        "`bash scripts/local/setup_python.sh` を実行し、"
         "`uv run python tuning/run_tuning.py ...` で起動してください。"
     ) from e
 

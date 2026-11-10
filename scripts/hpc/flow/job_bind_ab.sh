@@ -8,8 +8,8 @@
 # Flow-II Type I: OpenMP thread-binding A/B test (see bind_ab.sh).
 # ASCII only: the PBS job system does not accept multibyte characters.
 #
-#   qsub scripts/flow/job_bind_ab.sh
-#   qsub -v P=96,SIZES=4096,REPS=3 scripts/flow/job_bind_ab.sh
+#   qsub scripts/hpc/flow/job_bind_ab.sh
+#   qsub -v P=96,SIZES=4096,REPS=3 scripts/hpc/flow/job_bind_ab.sh
 # -----------------------------------------------------------------------------
 REPO="$HOME/Workspace/plasma-bench"
-bash "${REPO}/scripts/flow/bind_ab.sh"
+MACHINE=flow bash "${REPO}/scripts/hpc/lib/bind_ab.sh"

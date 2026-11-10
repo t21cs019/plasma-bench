@@ -18,11 +18,12 @@
 #   続きは NB_MIN を指定して流し直す。walltime はメンテナンスの前に収まるよう自動で縮める。
 #
 #   使い方（ログインノードで、plasma-bench の直下から）:
-#       bash scripts/flow/submit_campaign.sh            # 投入するコマンドを表示するだけ
-#       bash scripts/flow/submit_campaign.sh --submit   # 実際に qsub する
+#       bash scripts/hpc/flow/campaigns/2026-10-31_p192/submit_campaign.sh            # 投入するコマンドを表示するだけ
+#       bash scripts/hpc/flow/campaigns/2026-10-31_p192/submit_campaign.sh --submit   # 実際に qsub する
 # =============================================================================
 set -euo pipefail
-source "$(dirname "${BASH_SOURCE[0]}")/submit_lib.sh"
+FLOW_MAINT="2026-11-02 08:00 +0900"   # メンテナンス（有償利用の開始）
+source "$(dirname "${BASH_SOURCE[0]}")/../../submit_lib.sh"
 
 SUBMIT=0
 [ "${1:-}" = "--submit" ] && SUBMIT=1

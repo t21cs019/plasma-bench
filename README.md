@@ -42,7 +42,7 @@ cd plasma-bench
 
 # 3a. 計測だけなら追加インストール不要（標準ライブラリで動く）
 # 3b. チューニング・可視化を使う場合のみ（uv + uv.lock で再現）:
-bash scripts/setup_python.sh          # uv 導入 + uv sync --extra tuning --extra viz
+bash scripts/local/setup_python.sh          # uv 導入 + uv sync --extra tuning --extra viz
 ```
 
 > チューニング/可視化は uv の仮想環境（`.venv`）で動かす。実行は `uv run python -m ...`。
@@ -67,7 +67,7 @@ uv run python -m plasma_perf viz heatmap --input results/benchmark/xxx.csv --thr
 ```
 
 本番計測・チューニングは tmux ラッパー経由で回すと SSH 切断に耐える（後述）。
-`scripts/run_campaign.sh` は任意コマンドを包むので、`-- uv run python -m ...` も渡せる。
+`scripts/local/run_campaign.sh` は任意コマンドを包むので、`-- uv run python -m ...` も渡せる。
 
 ### bench のオプション（`plasma_perf bench {tileqr,ssrfb}`）
 
@@ -116,7 +116,7 @@ python3 -m plasma_perf plan run --only ssrfb --throttle-check
   （手動取得済み・別形式データの除外に使う）。
 - 過去・手動の CSV も、標準の命名・列（`{host}_..._size{S}_..`）に沿って
   `results/benchmark/` にあれば `plan scan` が自動で拾う（このマシンの host 分のみ）。
-- tmux で回し続ける: `scripts/run_campaign.sh -- python3 -m plasma_perf plan run --throttle-check`
+- tmux で回し続ける: `scripts/local/run_campaign.sh -- python3 -m plasma_perf plan run --throttle-check`
 
 ## サーマルスロットリング検知
 
@@ -127,13 +127,13 @@ python3 -m plasma_perf plan run --only ssrfb --throttle-check
 
 ## 本番計測（tmux ラッパー）
 
-`scripts/run_campaign.sh` は **任意のコマンドを tmux + ログ tee で包む汎用ラッパー**。
+`scripts/local/run_campaign.sh` は **任意のコマンドを tmux + ログ tee で包む汎用ラッパー**。
 計測対象は `--` 以降のコマンドで指定する（tileqr / ssrfb / tune で共用）。
 
 ```bash
-scripts/run_campaign.sh -- python -m plasma_perf bench tileqr --size 4096 --trials 5
-scripts/run_campaign.sh -- python -m plasma_perf bench ssrfb  --exe ~/Library/Tune_SSRFB/NoFlush --trials 5
-SESSION=tune scripts/run_campaign.sh -- uv run python -m plasma_perf tune ssrfb --counts 5 --trials 20
+scripts/local/run_campaign.sh -- python -m plasma_perf bench tileqr --size 4096 --trials 5
+scripts/local/run_campaign.sh -- python -m plasma_perf bench ssrfb  --exe ~/Library/Tune_SSRFB/NoFlush --trials 5
+SESSION=tune scripts/local/run_campaign.sh -- uv run python -m plasma_perf tune ssrfb --counts 5 --trials 20
 
 tmux attach -t bench       # 進捗確認（Ctrl-b d で離脱）
 tail -f logs/<最新>.log
@@ -142,10 +142,10 @@ tail -f logs/<最新>.log
 結果の転送（rclone / scp / http）:
 
 ```bash
-bash scripts/sync_results.sh rclone   # OneDrive 等へ
-SCP_DEST='ryo@desktop:~/tileQR_dashboard/inbox/manual' bash scripts/sync_results.sh scp
+bash scripts/local/sync_results.sh rclone   # OneDrive 等へ
+SCP_DEST='ryo@desktop:~/tileQR_dashboard/inbox/manual' bash scripts/local/sync_results.sh scp
 # ダッシュボードの受信API（ZimaOS等のコンテナ）へ直接POST → 自動取込:
-HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/sync_results.sh http
+HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/local/sync_results.sh http
 #   HTTP_KEY はダッシュボード sources.toml のソースキー。受信APIに認証をかけている
 #   場合は HTTP_TOKEN=<token> も付ける（ダッシュボードの DASHBOARD_TOKEN と一致）。
 ```
@@ -153,13 +153,13 @@ HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/sync_results.sh http
 ### 計測プラン(PROGRESS.md)をダッシュボードと往復同期
 
 `plan/PROGRESS.md` をダッシュボードの「計測プラン」タブで編集したい場合は
-`scripts/sync_plan.sh` で push / pull する。
+`scripts/local/sync_plan.sh` で push / pull する。
 
 ```bash
 python3 -m plasma_perf plan scan                                   # 進捗を最新化
-HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/sync_plan.sh push   # 送る
+HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/local/sync_plan.sh push   # 送る
 #   → ダッシュボードで行追加・note/skip を編集して保存
-HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/sync_plan.sh pull   # 取り戻す
+HTTP_URL=http://zima:8502 HTTP_KEY=calc bash scripts/local/sync_plan.sh pull   # 取り戻す
 python3 -m plasma_perf plan scan && python3 -m plasma_perf plan run      # 反映して実行
 ```
 
@@ -217,9 +217,26 @@ src/plasma_perf/
     heatmap.py           nb×ib GFLOPS ヒートマップ
     cli.py               `viz heatmap` エントリ
 scripts/
-  run_campaign.sh        任意コマンドを tmux+ログで包む汎用ラッパー
-  setup_python.sh        uv で Python 環境（tuning/viz）を構築（uv.lock 固定）
-  sync_results.sh        rclone / scp 転送
+  local/                 研究室のマシン・手元で使うもの
+    run_campaign.sh        任意コマンドを tmux+ログで包む汎用ラッパー
+    run_tuning_campaign.sh tuning/run_tuning.py を run_campaign.sh 経由で逐次実行
+    setup_python.sh        uv で Python 環境（tuning/viz）を構築（uv.lock 固定）
+    sync_results.sh        rclone / scp / http 転送
+    sync_plan.sh           plan/PROGRESS.md をダッシュボードと往復同期
+  hpc/                   スパコン（PBS のジョブ）で使うもの
+    lib/                   機種によらない計測の中身。MACHINE=flow|aoba で機種を指定（必須）
+      common.sh              NUMA ノードの選択・スレッド固定の検査・計測条件の控え
+      bind_ab.sh             スレッド固定の A/B テスト
+      tileqr_sweep.sh        tileQR の nb・ib スイープ（1ジョブ = 1反復）
+    flow/                  名古屋大 不老・弐 Type I
+      machine.sh             構成名（flow2-t1_s1）・既定のスレッド数（192）
+      job_bind_ab.sh         qsub するジョブスクリプト（ASCII のみ）
+      job_sweep.sh
+      submit_lib.sh          投入用の関数（walltime をメンテナンス前に縮める）
+      campaigns/<日付>_<名前>/  本番計測ごとの投入スクリプト（例 2026-10-31_p192）
+    aoba/                  東北大 AOBA-B
+      machine.sh             構成名（aoba-b_s1）・既定のスレッド数（64）
+      job_bind_ab.sh
 tests/
   test_core.py           パーサ・flops・スイープの単体テスト（実行ファイル不要）
 results/benchmark/       計測CSV（gitignore）

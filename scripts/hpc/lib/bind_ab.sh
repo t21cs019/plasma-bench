@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
 # =============================================================================
-# bind_ab.sh — OpenMP のスレッド固定で tileQR の性能が変わるかを確かめる（不老・弐 Type I）
+# bind_ab.sh — OpenMP のスレッド固定で tileQR の性能が変わるかを確かめる（不老・弐 Type I、AOBA-B）
 #
 #   本番のスイープの前に、t1-debug（1時間まで）で1回流す。
 #   3つの条件を、同じジョブの中で1点ずつ交互に流す（時間による変動を条件間でそろえるため）。
@@ -17,10 +17,10 @@
 #     * --membind と --interleave の差。差が無ければ本番は AOBA と同じ --membind
 #
 #   使い方（ジョブスクリプトから）:
-#       bash scripts/flow/bind_ab.sh
-#       P=96 SIZES="4096" REPS=3 bash scripts/flow/bind_ab.sh
+#       MACHINE=flow bash scripts/hpc/lib/bind_ab.sh
+#       MACHINE=flow P=96 SIZES="4096" REPS=3 bash scripts/hpc/lib/bind_ab.sh
 #
-#   結果: results/benchmark/flow_bind-ab_<時刻>/
+#   結果: results/benchmark/<MACHINE>_bind-ab_<時刻>/
 #       <条件>_size<S>.csv  条件ごとの CSV（1行 = 1回）
 #       affinity_<条件>.txt  スレッドの固定の検査の出力
 #       meta.txt / run.log / summary.txt
@@ -28,28 +28,28 @@
 set -euo pipefail
 source "$(dirname "${BASH_SOURCE[0]}")/common.sh"
 
-P=${P:-192}
+P=${P:-${MACHINE_P}}
 SIZES=${SIZES:-"2048 4096 8192"}
 NB_LIST=${NB_LIST:-"64 128 192 256 384"}
 IB=${IB:-32}
 REPS=${REPS:-5}
 CONDS=(none:bind close:bind close:interleave)
 
-flow_setup
-flow_select_nodes "${P}"
-OUTDIR="results/benchmark/flow_bind-ab_$(date +%Y%m%d_%H%M%S)"
+hpc_setup
+hpc_select_nodes "${P}"
+OUTDIR="results/benchmark/${MACHINE}_bind-ab_$(date +%Y%m%d_%H%M%S)"
 mkdir -p "${OUTDIR}"
 
 echo "===== preflight ====="
-flow_meta > "${OUTDIR}/meta.txt"
+hpc_meta > "${OUTDIR}/meta.txt"
 for c in "${CONDS[@]}"; do
-    flow_set_cond "${c%%:*}" "${c##*:}"
-    flow_check_cores "${P}"
-    flow_check_affinity "${P}" "${c%%:*}" "${OUTDIR}/affinity_$(flow_cond_tag "${c%%:*}" "${c##*:}").txt"
+    hpc_set_cond "${c%%:*}" "${c##*:}"
+    hpc_check_cores "${P}"
+    hpc_check_affinity "${P}" "${c%%:*}" "${OUTDIR}/affinity_$(hpc_cond_tag "${c%%:*}" "${c##*:}").txt"
 done
 echo "P=${P} / sizes: ${SIZES} / nb: ${NB_LIST} / ib=${IB} / reps=${REPS}"
 echo "output: ${OUTDIR}"
-flow_snapshot "開始" | tee -a "${OUTDIR}/meta.txt"
+hpc_snapshot "開始" | tee -a "${OUTDIR}/meta.txt"
 
 echo "===== A/B start ====="
 SECONDS=0
@@ -59,8 +59,8 @@ for rep in $(seq 1 "${REPS}"); do
         for nb in ${NB_LIST}; do
             for i in $(seq 0 $(( ncond - 1 ))); do
                 c=${CONDS[$(( (i + rep) % ncond ))]}
-                flow_set_cond "${c%%:*}" "${c##*:}"
-                tag=$(flow_cond_tag "${c%%:*}" "${c##*:}")
+                hpc_set_cond "${c%%:*}" "${c##*:}"
+                tag=$(hpc_cond_tag "${c%%:*}" "${c##*:}")
                 numactl "${NUMACTL_ARGS[@]}" \
                     "${PY}" -m plasma_perf bench tileqr \
                         --size "${size}" --threads "${P}" \
@@ -76,7 +76,7 @@ for rep in $(seq 1 "${REPS}"); do
     done
 done
 echo "===== A/B end (${SECONDS} sec) ====="
-flow_snapshot "終了" | tee -a "${OUTDIR}/meta.txt"
+hpc_snapshot "終了" | tee -a "${OUTDIR}/meta.txt"
 
 # --- 条件 × size × nb ごとの平均・最小・最大・変動係数 ------------------------
 {

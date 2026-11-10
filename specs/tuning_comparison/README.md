@@ -47,7 +47,7 @@
    コストが約8256回のNoFlush起動それぞれに乗ったためと推測）。バグ修正後の
    フル実行はまだ行っていない。
 6. **stdout のブロックバッファリングでログの進捗表示が大幅に遅延する問題
-   （2026-09-01 実機で発覚・修正）**: `run_tuning.py` を `scripts/run_campaign.sh`
+   （2026-09-01 実機で発覚・修正）**: `run_tuning.py` を `scripts/local/run_campaign.sh`
    経由（`| tee ログ`）で実行すると、標準出力先が非tty（パイプ）になるため
    CPython の既定動作でブロックバッファに切り替わり、`print()` による進捗表示
    （"--- run" / "-> nb=" 等）が何時間も flush されずログに反映されない現象を
@@ -76,7 +76,7 @@
 ## セットアップ
 
 ```bash
-bash scripts/setup_python.sh          # uv + optuna/pandas/pyarrow 等を導入（.venv/）
+bash scripts/local/setup_python.sh          # uv + optuna/pandas/pyarrow 等を導入（.venv/）
 ```
 
 ## 実行手順（i3-10100）
@@ -93,9 +93,9 @@ uv run python tuning/run_tuning.py --size 4096 --methods model --repeat 1 --thre
 uv run python tuning/run_tuning.py --size 4096 --methods agullo --repeat 1 --threads 4 --kernel-reps 5
 
 # 3. 本番（tmux ラッパー経由。SSH 切断に耐える）
-SIZE=4096 REPEAT=10 THREADS=4 bash scripts/run_tuning_campaign.sh
+SIZE=4096 REPEAT=10 THREADS=4 bash scripts/local/run_tuning_campaign.sh
 # 複数サイズを逐次実行する場合:
-SIZES="1024 2048 4096" REPEAT=10 THREADS=4 bash scripts/run_tuning_campaign.sh
+SIZES="1024 2048 4096" REPEAT=10 THREADS=4 bash scripts/local/run_tuning_campaign.sh
 
 tmux attach -t tuning       # 進捗確認（Ctrl-b d で離脱）
 tail -f logs/<最新>.log
@@ -116,7 +116,7 @@ tail -f logs/<最新>.log
 ## オフライン評価（手元で実行。データがある側）
 
 ```bash
-bash scripts/setup_python.sh --extra viz    # pandas/pyarrow のみで足りる
+bash scripts/local/setup_python.sh --extra viz    # pandas/pyarrow のみで足りる
 
 uv run python tuning/evaluate.py \
     --results results/tuning/tuning_i3-10100_size4096_th4_*.csv \

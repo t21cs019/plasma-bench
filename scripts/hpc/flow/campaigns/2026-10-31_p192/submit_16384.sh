@@ -17,12 +17,13 @@
 #   walltime はメンテナンスの前に収まるよう自動で縮める。
 #
 #   使い方（ログインノードで、plasma-bench の直下から）:
-#       bash scripts/flow/submit_16384.sh high              # 表示だけ
-#       bash scripts/flow/submit_16384.sh high --submit     # 投入
-#       bash scripts/flow/submit_16384.sh rest --submit
+#       bash scripts/hpc/flow/campaigns/2026-10-31_p192/submit_16384.sh high              # 表示だけ
+#       bash scripts/hpc/flow/campaigns/2026-10-31_p192/submit_16384.sh high --submit     # 投入
+#       bash scripts/hpc/flow/campaigns/2026-10-31_p192/submit_16384.sh rest --submit
 # =============================================================================
 set -euo pipefail
-source "$(dirname "${BASH_SOURCE[0]}")/submit_lib.sh"
+FLOW_MAINT="2026-11-02 08:00 +0900"   # メンテナンス（有償利用の開始）
+source "$(dirname "${BASH_SOURCE[0]}")/../../submit_lib.sh"
 
 STAGE=${1:-}
 SUBMIT=0
@@ -41,7 +42,7 @@ case "${STAGE}" in
         )
         ;;
     *)
-        echo "使い方: bash scripts/flow/submit_16384.sh {high|rest} [--submit]"
+        echo "使い方: bash scripts/hpc/flow/campaigns/2026-10-31_p192/submit_16384.sh {high|rest} [--submit]"
         exit 1
         ;;
 esac

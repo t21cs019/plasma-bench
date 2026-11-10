@@ -6,7 +6,7 @@ run_tuning.py — チューニング手法の実測比較 CLI。
 
 事前準備（tuning/ 用の Python 環境。計測コア src/ は標準ライブラリのみで動くので
 benchmark.py だけを使うなら不要）:
-    bash scripts/setup_python.sh --extra tuning
+    bash scripts/local/setup_python.sh --extra tuning
 
 使い方:
     uv run python tuning/run_tuning.py \\
@@ -30,7 +30,7 @@ import sys
 import time
 import datetime
 
-# tmux + tee 経由（scripts/run_tuning_campaign.sh）で実行するとパイプ先が非tty
+# tmux + tee 経由（scripts/local/run_tuning_campaign.sh）で実行するとパイプ先が非tty
 # になり、CPython の既定動作でこのプロセスの stdout がブロックバッファ
 # （デフォルト8KB程度）に切り替わる。結果、進捗の print()（"--- run" / "-> nb="
 # 等）がバッファに溜まったまま何時間も flush されず、ログ tail や監視が長時間
@@ -47,7 +47,7 @@ try:
     from tuning.methods import agullo, optuna_full, model  # noqa: E402
 except ImportError as e:
     print(f"[ERROR] 依存パッケージが不足しています: {e}")
-    print("        `bash scripts/setup_python.sh` を実行して環境を構築し、"
+    print("        `bash scripts/local/setup_python.sh` を実行して環境を構築し、"
           "`uv run python tuning/run_tuning.py ...` で起動してください。")
     sys.exit(1)
 from tuning import beta_fit  # noqa: E402

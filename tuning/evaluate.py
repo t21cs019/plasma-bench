@@ -4,7 +4,7 @@ evaluate.py — オフライン評価スクリプト。
 run_tuning.py の出力CSVを、tileQR_data の正解表（既存スイープの平均値）と
 突き合わせて評価する（指示書 4節）。**実行環境ではなく手元（tileQR_data を
 読める側）で動かす**。pandas/pyarrow が必要
-（`bash scripts/setup_python.sh --extra viz` で導入。計測機側には不要）。
+（`bash scripts/local/setup_python.sh --extra viz` で導入。計測機側には不要）。
 
 正解表に無い (nb, ib) が返された場合:
     最近傍の nb を採用する（推定で埋めない。match_flag="nearest_nb" を立てる）。

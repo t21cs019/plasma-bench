@@ -67,7 +67,7 @@ def _run_tune(row: TuneRow, remaining: int) -> None:
     try:
         import optuna  # noqa: F401
     except ImportError:
-        print("[skip] optuna 未インストール（uv: bash scripts/setup_python.sh）"
+        print("[skip] optuna 未インストール（uv: bash scripts/local/setup_python.sh）"
               f" → tuning {row.mode} をスキップ")
         return
 
