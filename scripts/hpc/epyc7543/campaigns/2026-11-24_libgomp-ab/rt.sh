@@ -54,6 +54,14 @@ rt_proc_check() {
         [ "${n}" -ge "${p}" ] && break
     done
     sleep 0.3
+    # 読んでいる途中で plasmatest が終わると数が欠けるので、止めてから /proc を1回だけ読む
+    kill -STOP "${pid}" 2>/dev/null || true
+    local tlines
+    tlines=$(for t in /proc/"${pid}"/task/*; do
+        printf '%s %s cpus=%s state=%s\n' "${t##*/}" "$(cat "${t}/comm" 2>/dev/null)" \
+            "$(awk '/^Cpus_allowed_list:/ {print $2}' "${t}/status" 2>/dev/null)" \
+            "$(awk '/^State:/ {print $2}' "${t}/status" 2>/dev/null)"
+    done)
     {
         echo "# rt=${rt} p=${p} pid=${pid} LD_PRELOAD=$(rt_preload "${shim}")"
         echo "# env: OMP_PLACES=${OMP_PLACES:-} OMP_PROC_BIND=${OMP_PROC_BIND:-} KMP_AFFINITY=${KMP_AFFINITY:-}"
@@ -61,12 +69,8 @@ rt_proc_check() {
         echo "## maps（OpenMP のランタイムと中継）"
         grep -E 'libiomp5|libgomp|gompfwd|obshim' "/proc/${pid}/maps" 2>/dev/null | awk '{print $2, $6}' | sort -u
         echo "## 各スレッドの CPU（Cpus_allowed_list）と状態"
-        for t in /proc/"${pid}"/task/*; do
-            printf '%s %s cpus=%s state=%s\n' "${t##*/}" "$(cat "${t}/comm" 2>/dev/null)" \
-                "$(awk '/^Cpus_allowed_list:/ {print $2}' "${t}/status" 2>/dev/null)" \
-                "$(awk '/^State:/ {print $2}' "${t}/status" 2>/dev/null)"
-        done
-        echo "distinct_cpus=$(for t in /proc/"${pid}"/task/*; do awk '/^Cpus_allowed_list:/ {print $2}' "${t}/status" 2>/dev/null; done | sort -u | wc -l)"
+        echo "${tlines}"
+        echo "distinct_cpus=$(echo "${tlines}" | sed -nE 's/.* cpus=([^ ]+) .*/\1/p' | sort -u | wc -l)"
     } > "${out}"
-    kill "${pid}" 2>/dev/null; wait "${pid}" 2>/dev/null || true
+    kill "${pid}" 2>/dev/null; kill -CONT "${pid}" 2>/dev/null; wait "${pid}" 2>/dev/null || true
 }

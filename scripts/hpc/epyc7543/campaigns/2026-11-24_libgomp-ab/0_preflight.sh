@@ -98,7 +98,7 @@ for rt in iomp gompnaive gomp; do
     rm -f "${OUT}/bind_${rt}".*
     OMP_NUM_THREADS=4 LD_DEBUG=bindings LD_DEBUG_OUTPUT="${OUT}/bind_${rt}" \
         numactl "${NUMACTL_ARGS[@]}" env LD_PRELOAD="$(rt_preload "")" "${PLASMA_TEST}" dgeqrf --dim=512x512 --nb=64 --ib=16 --test=n > /dev/null 2>&1
-    cat "${OUT}/bind_${rt}".* 2>/dev/null | sed -E 's/^ *[0-9]+: *//' \
+    cat "${OUT}/bind_${rt}".* 2>/dev/null | sed -E 's/^[[:space:]]*[0-9]+:[[:space:]]*//' \
         | grep -E "symbol \`(GOMP_|omp_|__kmpc_|kmp_|__kmp)" | sort -u | gzip -c > "${OUT}/bind_${rt}.txt.gz"
     rm -f "${OUT}/bind_${rt}".[0-9]*
     echo "### ${rt}（LD_PRELOAD=$(rt_preload "")）：参照するファイル → 結び付いた先（OpenMP の名前の数）"
