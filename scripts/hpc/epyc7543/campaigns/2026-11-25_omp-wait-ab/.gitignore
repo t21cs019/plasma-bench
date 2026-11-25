@@ -1,0 +1,4 @@
+# 計算機の上で作るもの（git に入れない）
+gompfwd/
+shim/*.so
+__pycache__/
